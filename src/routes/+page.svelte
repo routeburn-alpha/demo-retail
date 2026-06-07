@@ -1,0 +1,154 @@
+<script lang="ts">
+  import { search, type Product, type Synonyms } from '$lib/storefront/search';
+  import { POPULAR_QUERIES } from '$lib/storefront/popular-queries';
+
+  let { data }: { data: { catalog: Product[]; synonyms: Synonyms } } = $props();
+
+  let query = $state('');
+  let results = $derived(search(query, data.catalog, data.synonyms));
+
+  const formatPrice = (n: number) => `$${n.toFixed(0)}`;
+
+  function setQuery(next: string) {
+    query = next;
+  }
+</script>
+
+<header class="sticky top-0 z-10 border-b border-line bg-surface/95 backdrop-blur">
+  <div class="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:gap-6 sm:px-6 sm:py-5">
+    <a href="/" class="font-display whitespace-nowrap text-sm tracking-[0.15em] text-ink sm:text-xl sm:tracking-[0.3em]">TARN &amp; TRAIL</a>
+    <div class="relative w-full max-w-sm">
+      <svg
+        class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/60"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <circle cx="11" cy="11" r="7" />
+        <path d="m21 21-4.3-4.3" />
+      </svg>
+      <input
+        type="search"
+        bind:value={query}
+        aria-label="Search"
+        placeholder="Search the catalogue…"
+        class="w-full rounded-full border border-line bg-bg py-2 pl-9 pr-9 text-sm text-ink placeholder:text-ink/55 focus:border-accent focus:outline-none"
+      />
+      {#if query.length > 0}
+        <button
+          type="button"
+          aria-label="Clear search"
+          onclick={() => setQuery('')}
+          class="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-ink/60 hover:bg-line hover:text-ink"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-3.5 w-3.5">
+            <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+          </svg>
+        </button>
+      {/if}
+    </div>
+  </div>
+</header>
+
+{#if query.trim() === ''}
+  <section
+    class="relative overflow-hidden border-b border-line"
+    style="background: linear-gradient(135deg, #2f4a3a 0%, #1a2820 60%, #0f1a14 100%);"
+  >
+    <div class="mx-auto max-w-6xl px-6 py-16 text-bg sm:py-20">
+      <p class="mb-3 text-xs uppercase tracking-[0.3em] text-bg/80">Autumn 2026</p>
+      <h1 class="font-display text-3xl leading-tight sm:text-4xl md:text-5xl">Built for the long way home.</h1>
+      <p class="mt-4 max-w-md text-sm text-bg/90">
+        Layers, packs, and quiet tools for the country between the trailhead and the col.
+      </p>
+    </div>
+  </section>
+{/if}
+
+<main class="mx-auto max-w-6xl px-6 py-10">
+  {#if query.trim() === ''}
+    <div class="mb-6 flex items-baseline justify-between">
+      <h2 class="font-display text-lg tracking-wide text-ink">The Catalogue</h2>
+      <p class="text-xs uppercase tracking-widest text-ink/70">
+        {data.catalog.length} items
+      </p>
+    </div>
+    <div class="grid grid-cols-2 gap-x-5 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
+      {#each data.catalog as product (product.id)}
+        <article data-testid="product-card" class="group">
+          <div class="relative aspect-[4/5] overflow-hidden rounded-sm bg-bg">
+            <img
+              src={product.imageUrl}
+              alt={product.name}
+              loading="lazy"
+              class="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+            />
+            <span aria-hidden="true" class="pointer-events-none absolute bottom-1.5 right-1.5 h-6 w-6 rounded-sm bg-bg/70 backdrop-blur-sm"></span>
+          </div>
+          <div class="mt-3">
+            <p class="text-[10px] uppercase tracking-[0.2em] text-ink/70">{product.category}</p>
+            <div class="mt-1 flex items-start justify-between gap-3">
+              <h3 class="text-sm font-medium text-ink">{product.name}</h3>
+              <p class="text-sm text-ink/75">{formatPrice(product.price)}</p>
+            </div>
+          </div>
+        </article>
+      {/each}
+    </div>
+  {:else if results.length > 0}
+    <p class="mb-6 text-sm text-ink/80">
+      {results.length} {results.length === 1 ? 'result' : 'results'} for "{query.trim()}"
+    </p>
+    <div class="flex flex-wrap justify-start gap-x-5 gap-y-10" class:justify-center={results.length < 4}>
+      {#each results as product (product.id)}
+        <article
+          data-testid="product-card"
+          class="group w-[calc(50%-0.625rem)] sm:w-[calc(33.333%-0.834rem)] lg:w-[calc(25%-0.938rem)]"
+        >
+          <div class="relative aspect-[4/5] overflow-hidden rounded-sm bg-bg">
+            <img
+              src={product.imageUrl}
+              alt={product.name}
+              loading="lazy"
+              class="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+            />
+            <span aria-hidden="true" class="pointer-events-none absolute bottom-1.5 right-1.5 h-6 w-6 rounded-sm bg-bg/70 backdrop-blur-sm"></span>
+          </div>
+          <div class="mt-3">
+            <p class="text-[10px] uppercase tracking-[0.2em] text-ink/70">{product.category}</p>
+            <div class="mt-1 flex items-start justify-between gap-3">
+              <h3 class="text-sm font-medium text-ink">{product.name}</h3>
+              <p class="text-sm text-ink/75">{formatPrice(product.price)}</p>
+            </div>
+          </div>
+        </article>
+      {/each}
+    </div>
+  {:else}
+    <section data-testid="zero-results" class="py-20 text-center">
+      <p class="font-display text-xl text-ink">Nothing for "{query.trim()}".</p>
+      <p class="mt-2 text-sm text-ink/75">Popular right now:</p>
+      <div class="mt-8 flex flex-wrap justify-center gap-3">
+        {#each POPULAR_QUERIES as suggestion (suggestion)}
+          <button
+            type="button"
+            onclick={() => setQuery(suggestion)}
+            class="rounded-full border border-line bg-surface px-5 py-2 text-sm text-ink transition hover:border-accent hover:text-accent"
+          >
+            {suggestion}
+          </button>
+        {/each}
+      </div>
+    </section>
+  {/if}
+</main>
+
+<footer class="mt-16 border-t border-line bg-surface">
+  <div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-6 py-8 text-xs text-ink/65">
+    <span class="font-display tracking-[0.3em]">TARN &amp; TRAIL</span>
+    <span>Outdoor gear for the country between the trailhead and the col.</span>
+  </div>
+</footer>

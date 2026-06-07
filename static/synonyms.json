@@ -1,0 +1,20 @@
+{
+  "trainers": ["trail runner"],
+  "sneakers": ["trail runner"],
+  "runners": ["trail runner"],
+  "rucksack": ["backpack"],
+  "daypack": ["backpack"],
+  "anorak": ["shell jacket"],
+  "raincoat": ["shell jacket"],
+  "waterproof": ["shell jacket"],
+  "thermals": ["base layer"],
+  "longjohns": ["base layer"],
+  "puffer": ["down jacket"],
+  "puffy": ["down jacket"],
+  "kip": ["sleeping bag"],
+  "torch": ["headlamp"],
+  "flask": ["water bottle"],
+  "boots": ["hiking boot"],
+  "tramping boots": ["hiking boot"],
+  "mittens": ["gloves"]
+}

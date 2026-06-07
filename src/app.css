@@ -1,0 +1,19 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-bg: #f5f1ea;
+  --color-surface: #ffffff;
+  --color-ink: #2a2a26;
+  --color-muted: #6b6b62;
+  --color-accent: #3e5641;
+  --color-line: #e3ddd1;
+}
+
+html,
+body {
+  background-color: var(--color-bg);
+  color: var(--color-ink);
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
