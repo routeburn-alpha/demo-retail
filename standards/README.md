@@ -48,7 +48,7 @@ serve the agent the same way at runtime — the seeding step is the only differe
 | File | Title | What it enforces |
 |------|-------|------------------|
 | [`no-mocks.md`](no-mocks.md) | Tests Run Against Real Services | Real DB / real components in tests; no mocked fetch or fake backends |
-| [`leave-files-cleaner.md`](leave-files-cleaner.md) | Leave Touched Files Cleaner | Boyscout rule, scoped to files the task already opens |
+| [`leave-files-cleaner.md`](leave-files-cleaner.md) | Leave Touched Files Cleaner | Campground rule, scoped to files the task already opens |
 
 ## File format
 
