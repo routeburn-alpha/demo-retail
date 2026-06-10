@@ -11,5 +11,10 @@ export default defineConfig({
   dialect: 'postgresql',
   dbCredentials: {
     url: process.env.DATABASE_URL!
-  }
+  },
+  // The `standards` table is deliberately managed outside Drizzle (created/seeded by
+  // scripts/seed-standards.ts), so it is absent from schema.ts. Without this filter,
+  // `db:push` sees it as a data-loss drop and opens an interactive prompt that no
+  // agent/CI shell can answer. Excluding it lets push run non-interactively.
+  tablesFilter: ['!standards']
 });

@@ -28,10 +28,15 @@ npm run dev                 # SvelteKit dev server (vite)
 npm run test                # Vitest — component + server/db integration tests
 npm run check               # svelte-check (app) + tsc on the framework's own code (sdlc/, scripts/)
 npm run build               # Production build
-npm run db:push             # Apply Drizzle schema to the database
+npm run db:push             # Apply Drizzle schema to the database (non-interactive; see note)
 npm run db:seed             # Seed the product catalogue
 tsx scripts/seed-standards.ts   # Seed standards/*.md into the standards table
 ```
+
+`db:push` runs non-interactively (safe for agent/CI shells). `drizzle.config.ts` sets
+`tablesFilter: ['!standards']` so push ignores the `standards` table — that table is managed
+outside Drizzle by `seed-standards.ts` and would otherwise show as a data-loss drop and block on an
+interactive prompt. Keep any other out-of-Drizzle tables out of push the same way.
 
 ## Testing
 
