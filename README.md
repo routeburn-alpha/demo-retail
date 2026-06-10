@@ -22,3 +22,7 @@ The dev server prints a URL (usually `http://localhost:5173`). The page is at `/
 ## Lifecycle
 
 This repo is paired with studio-ai task #1557. Follow-up tasks against ideas in the same studio will add features here (typo tolerance, PDP, browse, facets, recommendations) — each linked to a real PR in this repo.
+
+For how that work actually gets built — the opinionated SDLC every change walks — start with
+[`FRAMEWORK.md`](FRAMEWORK.md), or read the narrative walkthrough in
+[`docs/BUILDERS-JOURNEY.md`](docs/BUILDERS-JOURNEY.md).
