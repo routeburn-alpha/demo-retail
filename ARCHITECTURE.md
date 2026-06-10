@@ -165,9 +165,15 @@ Per [`standards/no-mocks.md`](standards/no-mocks.md):
   (`@vercel/config`) declares `framework: 'sveltekit'`, `buildCommand: 'npm run build'`.
 - **The gate (`npm run precommit`):** `check` (svelte-check on the app + `tsc` on framework code in
   `sdlc/`/`scripts/`) → `build` → `test`. The framework's own code is held to the same gate as the app.
-- **There is no server-side CI today** — the gate runs locally/in-agent before push via
+- **Local `/precommit` is the primary door** — the gate runs locally/in-agent before push via
   [`/precommit`](.claude/skills/precommit/SKILL.md) ("the push gate is the only door"). A change
   **MUST** pass the full gate before it can land; do not rationalize a red test as pre-existing/flaky.
+- **Server-side CI mirrors the gate** — [`.github/workflows/ci.yml`](.github/workflows/ci.yml) re-runs
+  the full `npm run precommit` (check → build → test) on every PR into `main` and on pushes to feature
+  branches, as a safety net for a change that bypassed the local gate. It is **not** a replacement for
+  `/precommit`. CI runs the same **real** services as local (real Chromium; real Postgres via a
+  `DATABASE_URL` secret + `db:push`) so the no-mocks standard holds in CI exactly as locally — a
+  missing DB secret fails the job rather than silently skipping the integration test.
 - Merge & deploy are GitHub (squash-merge to `main`) + Vercel (preview per PR, production on `main`).
 
 ---
