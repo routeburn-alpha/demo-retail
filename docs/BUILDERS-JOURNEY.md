@@ -70,12 +70,38 @@ idea #6 stage tasks — see each heading.)*
 
 ## Stage 0 — The context layer: grounded ideas & grounded execution
 
-> _Filled in by task #19 (Stage 0 — The context layer)._ The foundation the whole journey stands
-> on. **Idea-side:** a spec-writer agent drafts the hypothesis grounded in product/domain/org
-> context (`load_product_context`) so ideas are grounded, not guesses. **Task-side:** architecture,
-> design docs, and ADRs are attached (`attach_context`, inherited idea → task) and **auto-injected
-> at pickup**. Why grounding makes both the *why* and the *how* trustworthy — for a human or an
-> agent.
+Before a single task is claimed, the work already knows where it stands. Ideas and tasks here aren't
+free-floating text — they're grounded in a **context layer**: the product's strategy and the
+domain's hard-won knowledge, attached to the work and carried with it. This is the floor the whole
+journey rests on. Skip it and you get confident-sounding work pointed at the wrong thing; build on
+it and every later gate is checking something that was worth building in the first place.
+
+**Grounding the _why_.** An idea doesn't start as a guess typed into a box. The product's strategy,
+vision, and PRD are loaded first (`load_product_context`), and a spec-writer drafts the hypothesis
+_against_ that context — so the bet is anchored to where the product is actually going, not to
+whoever argued hardest. Domain knowledge — the catalogue's quirks, prior research, org conventions —
+is attached to the idea (`attach_context`) so it travels with the hypothesis. And because context
+attached to an idea is **inherited by every task spun out of it**, that grounding flows downstream
+automatically: decompose an idea into tasks and each one starts from the same footing.
+
+**Grounding the _how_.** Execution needs a different kind of context, and it attaches at the task:
+the architecture rulebook, design docs, ADRs — the decisions a builder must not silently
+re-litigate. These are curated onto the task (`attach_context`, drawing on knowledge-base docs,
+indexed documents, or files synced straight from the GitHub repo), and the studio standards ride
+along as context too (they are stored as context documents). The constraints arrive _with_ the work,
+not in a wiki someone might think to open.
+
+**Injected, not hunted for.** None of this depends on remembering to go read it. When a task is
+claimed (`work_on_next_task` — Stage 1), its context — its own, plus whatever it inherited from its
+idea — is injected directly into the builder's working context. This very section is the proof: the
+task that wrote it was picked up with five repo documents already attached and in front of the
+builder — `README.md`, `ARCHITECTURE.md`, `FRAMEWORK.md`, `SETUP.md`, `CLAUDE.md`. A builder can
+pull more in on demand (`search_context`) or curate the set (`attach_context` / `remove_context`).
+
+And "the builder" is deliberately literal here: a human reads the injected context in their editor;
+an autonomous agent receives the identical payload at pickup. Same grounding, same constraints,
+whoever — or whatever — picks up the work. That shared footing is what makes the next stage,
+claiming a task, the start of a journey rather than a leap in the dark.
 
 ## Stage 1 — Pick up work
 
