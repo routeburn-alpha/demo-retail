@@ -38,6 +38,7 @@ gets built that can't answer "which idea is this serving, and did it work?"
 ## In this repo
 
 The demo models tasks as files in [`../backlog/`](../backlog/) (a stand-in for a real task API like
-studio-ai). Ideas are described in `ROADMAP.md`. In a production deployment, ideas, tasks,
+studio-ai). Ideas live in the studio (the **platform** product holds the milestone ideas; see
+[`SETUP.md`](../SETUP.md) for stack and onboarding). In a production deployment, ideas, tasks,
 executions, PRs, and build-report comments are first-class records in the backend, queried via an
 MCP server — but the *shape* of the lineage is identical.
