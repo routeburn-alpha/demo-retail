@@ -26,7 +26,7 @@ you must confirm each. The two standards in this repo:
 ```bash
 npm run dev                 # SvelteKit dev server (vite)
 npm run test                # Vitest — component + server/db integration tests
-npm run check               # svelte-check (types)
+npm run check               # svelte-check (app) + tsc on the framework's own code (sdlc/, scripts/)
 npm run build               # Production build
 npm run db:push             # Apply Drizzle schema to the database
 npm run db:seed             # Seed the product catalogue

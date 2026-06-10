@@ -54,6 +54,11 @@ In this demo the human variant is fully wired (the `.claude/skills`). The manage
 described in `sdlc/core.md` as the second consumer — the same `render*()` functions would compose
 it.
 
+**The framework's own code is held to the same gate as the app.** `npm run check` type-checks
+`sdlc/core.ts` and the `scripts/` under the same strict config as `src/` (via
+`tsconfig.framework.json`), and `npm run check` is part of the `precommit` gate — so a broken
+`render*()` signature can no more reach `main` than a broken product change can.
+
 ---
 
 ## Opinion 4 — Standards as an active gate (the strongest moment)
