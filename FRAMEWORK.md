@@ -106,6 +106,10 @@ The invariant that makes N parallel agents safe: each agent branch always return
 
 ## Suggested demo narrative (~6 minutes)
 
+> For the full presenter script — exact commands, talking points, timing, and the enforcement
+> moments to pause on — see [`docs/DEMO-SCRIPT.md`](docs/DEMO-SCRIPT.md). The outline below is the
+> at-a-glance.
+
 1. **Open `sdlc/core.md` and `core.ts` side by side.** "One spec, two runtimes. Edit once." *(60s)*
 2. **Open a task in the studio (studio-ai over MCP).** Point at the embedded acceptance criteria. "Work is a record, not a prompt." *(30s)*
 3. **Run `/work-on-task` to the gate.** Stop on the standards self-challenge table + the *failing* test output. The "it can't skip the process" moment. *(2m)*
