@@ -78,7 +78,7 @@ agent is forced to answer to** at three checkpoints:
 The two principles this repo demonstrates:
 
 - **[Tests run against real services (no mocks)](standards/no-mocks.md)**
-- **[Leave touched files cleaner (boyscout, scoped)](standards/leave-files-cleaner.md)**
+- **[Leave touched files cleaner (campground rule, scoped)](standards/leave-files-cleaner.md)**
 
 This is the demonstration: *our principles aren't a `CONTRIBUTING.md` nobody reads — they're a
 gate the agent literally cannot skip.*

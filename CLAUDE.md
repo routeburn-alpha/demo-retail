@@ -19,7 +19,7 @@ Before writing code you must self-challenge your plan against the seeded
 you must confirm each. The two standards in this repo:
 
 - [Tests run against real services (no mocks)](standards/no-mocks.md)
-- [Leave touched files cleaner (boyscout, scoped)](standards/leave-files-cleaner.md)
+- [Leave touched files cleaner (campground rule, scoped)](standards/leave-files-cleaner.md)
 
 ## Commands
 
