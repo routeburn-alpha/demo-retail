@@ -6,7 +6,8 @@ import {
   boolean,
   timestamp,
   serial,
-  unique
+  unique,
+  index
 } from 'drizzle-orm/pg-core';
 
 /**
@@ -82,6 +83,38 @@ export const orderItems = pgTable('order_items', {
   qty: integer('qty').notNull()
 });
 
+/**
+ * Per-category facet ordering (idea: browse #1). Each row places one facet at a
+ * position within one category; the UNIQUE(category_slug, facet_key) constraint
+ * keeps a facet from appearing twice in the same category. `category_facet_orders_category_idx`
+ * supports the by-category lookup the port (`getFacetOrderForCategory`) runs.
+ */
+export const categoryFacetOrders = pgTable(
+  'category_facet_orders',
+  {
+    id: serial('id').primaryKey(),
+    categorySlug: text('category_slug').notNull(),
+    facetKey: text('facet_key').notNull(),
+    displayOrder: integer('display_order').notNull(),
+    createdAt: timestamp('created_at').notNull().defaultNow()
+  },
+  (t) => ({
+    categoryFacet: unique('category_facet_orders_category_facet').on(t.categorySlug, t.facetKey),
+    byCategory: index('category_facet_orders_category_idx').on(t.categorySlug)
+  })
+);
+
+/** Fallback facet ordering for categories with no explicit configuration. */
+export const defaultFacetOrders = pgTable('default_facet_orders', {
+  id: serial('id').primaryKey(),
+  facetKey: text('facet_key').notNull().unique(),
+  displayOrder: integer('display_order').notNull()
+});
+
 export type ProductRow = typeof products.$inferSelect;
 export type NewProductRow = typeof products.$inferInsert;
 export type OrderRow = typeof orders.$inferSelect;
+export type CategoryFacetOrderRow = typeof categoryFacetOrders.$inferSelect;
+export type NewCategoryFacetOrderRow = typeof categoryFacetOrders.$inferInsert;
+export type DefaultFacetOrderRow = typeof defaultFacetOrders.$inferSelect;
+export type NewDefaultFacetOrderRow = typeof defaultFacetOrders.$inferInsert;
