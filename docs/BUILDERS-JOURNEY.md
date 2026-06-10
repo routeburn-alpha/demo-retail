@@ -63,8 +63,8 @@ flowchart TD
     class G,CI gate;
 ```
 
-The rest of this doc walks each numbered stage. *(Stage sections below are filled in by the
-idea #6 stage tasks — see each heading.)*
+The rest of this doc walks each numbered stage, end to end — from a grounded idea to a reviewed
+merge and the build report that feeds the next one.
 
 ---
 
@@ -278,14 +278,72 @@ who looks at the change and says yes. That sign-off is the next stage.
 
 ## Stage 5 — Review, sign-off & merge
 
-> _Filled in by task #17 (Stage 5/6)._ The review cycle and the single human touchpoint; the
-> changes-requested loop; explicit approval; squash-merge; the branch returning to `origin/main`.
+Everything up to here has been a machine checking a machine: the gate runs, CI re-runs it, red is
+red no matter whose hands are on the keyboard. Stage 5 is where that deliberately stops. The change
+has earned its way to a pull request, and now exactly one thing remains that no rail can do for
+you — a human looks at it and decides. This is the **single human touchpoint in the whole
+lifecycle**, and it sits here, at the end, *by design*: because every mechanical check has already
+passed before the PR opens, the reviewer spends their attention on the only question left that needs
+judgment — *is this the right change?* — instead of re-litigating whether the tests are green.
+
+When the builder submits (`submit_for_review`), the studio links the PR to the task, moves the task
+into **review**, and **assigns the reviewers** on the GitHub PR automatically — the request for eyes
+isn't a chat message that might get missed, it's part of the record. From there it's an ordinary,
+rigorous PR review: the reviewer reads the diff, clicks the PR's Vercel preview to see the change
+actually running, and either approves or requests changes. **Changes requested** isn't a detour off
+the road; it's the same road looping. The builder amends the change, re-runs the *entire* gate
+(check → build → test — a change made under review is still a change, and gets re-proven, not waved
+through), force-pushes, and re-presents. Nothing merges on a maybe: **explicit approval is required**
+before the change can land.
+
+On approval the PR is **squash-merged to `main`** — one commit per task, so the history reads as
+cleanly as the lineage does. Then the quiet, load-bearing move: the builder's branch is reset to
+mirror **`origin/main`** exactly before the next task begins. No leftover state, no half-finished
+second thing, no slow drift between what's on the branch and what's shipped — each task starts from
+the same clean line every other task started from. It's the same invariant Stage 1 leaned on when it
+promised you only ever hold one task at a time; this is the moment that keeps the promise.
+
+For an autonomous builder the shape is identical, with one substitution: there's no human at the
+keyboard to pause for, so **the GitHub PR review itself is the gate**. A managed agent pushes, opens
+the PR, and stops — the same approval a human reviewer would give, now given asynchronously on the
+PR before anything merges. Same checkpoint, same authority, same "nothing lands without a yes." The
+human sign-off doesn't disappear when the builder is an agent; it just moves to where it always
+belonged — the review.
 
 ## Stage 6 — Visibility & the learning loop
 
-> _Filled in by task #17 (Stage 5/6)._ The 3-section build report; learnings as candidate
-> follow-ups (never auto-created); execution events and the agent stream; how all of this elevates
-> visibility — the deck framing.
+The moment a task merges, the builder writes a **build report** — posted as a comment on the studio
+task, always the same three sections: **How we implemented it**, **Decisions off-spec** (where
+reality diverged from the plan, and why), and **Learnings**. This isn't paperwork filed and
+forgotten; it's how the work explains itself after the fact. The next builder — or the same one in
+three weeks, or a reviewer reconstructing a decision a year later — gets the *why*, not just the
+diff. The change arrives with its own reasoning attached.
+
+The **Learnings** section is where the next ideas are born — a rough edge noticed in passing, a
+refactor worth doing, a standard worth adding. But here the framework is deliberately restrained: a
+learning is a **candidate, never a task**. The builder does not spin up follow-on work on its own
+authority — that's a hard rule, and it's especially load-bearing when the builder is an agent that
+could otherwise breed a backlog by itself. It surfaces the candidate; a human decides whether it
+becomes real work. So the loop closes back to ideas (Stage 1) *through a person*, on purpose — the
+backlog stays something people chose, not something that multiplied while no one was looking. And
+with the report posted, the **lineage** is complete: idea → task → PR → build report, an unbroken
+chain. Any commit on `main` walks backward to the hypothesis it served and the review that approved
+it; any idea walks forward to the code that tested it. Nothing is orphaned.
+
+Because every step along the way *was* a record — a claimed task, a self-challenge, a gated PR, a
+report — the whole journey is **visible without anyone writing a status update**. The studio shows
+who's building what, what's sitting in review, what merged and why, across the entire fleet. For a
+managed agent there's more still: its run emits **execution events** — the live LLM-and-tool-call
+stream — so you can watch *how* it walked the road, call by call, not just read where it ended up.
+The work narrates itself, in public, as it happens.
+
+And that is the part to put on stage. The visible feature is the storefront; the **differentiator is
+everything underneath it** — that a hypothesis becomes grounded context, becomes one claimed task,
+becomes a failing test before any code, becomes a gated and reviewed merge, becomes a build report
+that feeds the next hypothesis — and that the *same rails hold* whether a person or an agent walks
+them, one at a time or a fleet at once. That background machinery, usually invisible, is the story
+worth telling. The journey you just read is the journey we demo: one change, end to end, and the
+rails that make it trustworthy no matter who — or what — is building.
 
 ---
 
