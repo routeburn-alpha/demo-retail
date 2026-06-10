@@ -7,11 +7,11 @@ gets built that can't answer "which idea is this serving, and did it work?"
   IDEA  (a hypothesis about the product)
    │      e.g. "Shoppers search by everyday words, not our category names —
    │            synonym search will lift add-to-cart on the storefront."
-   │      fields: validationStatus (draft → backlog → validated → scaling | failed)
+   │      fields: validationStatus (backlog → firstLevel → secondLevel → scaling | failed | bau)
    │
    └─▶ TASK  (a unit of work serving the idea)
-        │      e.g. backlog/0001-synonym-search.md
-        │      fields: status (ready → in-progress → review → done), spec,
+        │      e.g. studio task "synonym search" (search #1)
+        │      fields: status (backlog → inProgress → review → done), spec,
         │              acceptanceCriteria, owner (agent name)
         │
         └─▶ EXECUTION  (one agent's attempt — local session or managed run)
@@ -37,8 +37,9 @@ gets built that can't answer "which idea is this serving, and did it work?"
 
 ## In this repo
 
-The demo models tasks as files in [`../backlog/`](../backlog/) (a stand-in for a real task API like
-studio-ai). Ideas live in the studio (the **platform** product holds the milestone ideas; see
-[`SETUP.md`](../SETUP.md) for stack and onboarding). In a production deployment, ideas, tasks,
-executions, PRs, and build-report comments are first-class records in the backend, queried via an
-MCP server — but the *shape* of the lineage is identical.
+Tasks and ideas live in **studio-ai**, the studio's task system, queried over its **MCP server**
+(`mcp__studio-ai__*` tools — e.g. `get_tasks`, `work_on_next_task`, `submit_for_review`). Ideas,
+tasks, executions, PRs, and build-report comments are first-class records there — the **platform**
+product holds the milestone ideas; see [`SETUP.md`](../SETUP.md) for stack and onboarding. This is
+the production shape itself, not a stand-in: the *shape* of the lineage above is exactly what the
+MCP records model.

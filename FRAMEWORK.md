@@ -17,7 +17,7 @@ This is the document to read first. Each opinion below maps to a concrete artifa
 | # | Opinion | Artifact |
 |---|---|---|
 | 1 | **One SDLC spec, two runtimes.** Human and autonomous agents render the *same* step text from one source. | [`sdlc/core.md`](sdlc/core.md) + [`sdlc/core.ts`](sdlc/core.ts) |
-| 2 | **Work is a typed record, claimed from a backlog** — not a prompt typed into chat. | [`backlog/`](backlog/) + [`scripts/agent-loop.sh`](scripts/agent-loop.sh) |
+| 2 | **Work is a typed record, claimed from a backlog** — not a prompt typed into chat. | studio-ai task records over MCP (`mcp__studio-ai__work_on_next_task` / `get_tasks`) |
 | 3 | **Test-first is non-negotiable and *gated*.** No production code until a failing test exists. | [`.claude/skills/work-on-task/SKILL.md`](.claude/skills/work-on-task/SKILL.md) |
 | 4 | **Standards are an active gate, not passive docs.** Injected at pickup, self-challenged before coding, re-confirmed at submit. | [`standards/`](standards/) |
 | 5 | **The push gate is the only door, and it's the single human touchpoint.** | [`.claude/skills/precommit/SKILL.md`](.claude/skills/precommit/SKILL.md) |
@@ -93,7 +93,9 @@ scheduler. See [`docs/lineage.md`](docs/lineage.md) and:
 - [`scripts/worktree-init.sh`](scripts/worktree-init.sh) — each agent is a `git worktree` with its
   own identity (`AGENT_NAME`, `AGENT_PORT`) and an isolated dev-server port.
 - [`scripts/agent-loop.sh`](scripts/agent-loop.sh) — an outside-the-session poll loop that claims
-  one backlog task, launches a session, and idles otherwise.
+  one backlog task, launches a session, and idles otherwise. **Note:** this script polls an
+  earlier file-based `backlog/` store; the task store has since moved to studio-ai over MCP, so the
+  loop's claim step (`work_on_next_task`) is what a current fleet would call instead.
 
 The invariant that makes N parallel agents safe: each agent branch always returns to
 `origin/main` between tasks (Opinion 6).
@@ -103,7 +105,7 @@ The invariant that makes N parallel agents safe: each agent branch always return
 ## Suggested demo narrative (~6 minutes)
 
 1. **Open `sdlc/core.md` and `core.ts` side by side.** "One spec, two runtimes. Edit once." *(60s)*
-2. **Open a task in `backlog/`.** Point at the embedded acceptance criteria. "Work is a record, not a prompt." *(30s)*
+2. **Open a task in the studio (studio-ai over MCP).** Point at the embedded acceptance criteria. "Work is a record, not a prompt." *(30s)*
 3. **Run `/work-on-task` to the gate.** Stop on the standards self-challenge table + the *failing* test output. The "it can't skip the process" moment. *(2m)*
 4. **Implement, then `/precommit`.** Land on the review gate: PR link + diff + the `confirmStandards` re-list. "One human touchpoint." *(1.5m)*
 5. **Show the build-report comment + merged PR, trace back to the task.** "Unbroken lineage." *(30s)*
@@ -116,6 +118,6 @@ The invariant that makes N parallel agents safe: each agent branch always return
 | Layer | Portable essence | Demo scaffolding (swap for your infra) |
 |---|---|---|
 | SDLC framework | `sdlc/`, `.claude/skills/`, `standards/`, `CLAUDE.md` | — |
-| Task backlog | The *contract* (claim → submit) | `backlog/` file store stands in for a real task API |
+| Task backlog | The *contract* (claim → submit) | studio-ai over MCP is the task API (an earlier revision used a `backlog/` file store) |
 | Standards gate | The 3-point flow | `standards` table seeded by `seed-standards.ts` |
 | Fleet | worktree + per-agent port + poll loop | the specific scripts |

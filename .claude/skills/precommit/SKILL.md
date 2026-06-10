@@ -12,7 +12,8 @@ tests. This is the push + review-gate + merge tail of the human SDLC; the shared
 ## Flow
 
 ### 1. Verify active task + branch precondition
-Find the `backlog/<id>-*.md` task this agent moved to `status: in-progress`.
+Find the studio-ai task this agent moved to `inProgress` (`get_tasks` with `status: inProgress` /
+`owner: me`).
 - **None found:** warn that pushing without a task bypasses the SDLC; ask to continue or pick a
   task. If continuing, skip the standards confirmation in Step 4.
 - **Branch:** `git rev-parse --abbrev-ref HEAD` must be the agent branch (`agent/$AGENT_NAME`). If
@@ -47,9 +48,10 @@ SLUG=<short kebab-case slug>
 PR_BRANCH="${TASK_ID}-${SLUG}"
 AGENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 git checkout -b "$PR_BRANCH" && git push -u origin "$PR_BRANCH"
-gh pr create --base main --head "$PR_BRANCH" --title "$TASK_ID <description>" --body "Task: backlog/${TASK_ID}-*.md"
+gh pr create --base main --head "$PR_BRANCH" --title "$TASK_ID <description>" --body "Task: <product> #<taskNumber>"
 ```
-Record the PR URL.
+Record the PR URL, then link it to the studio task with `submit_for_review` (moves the task to
+`review` and assigns reviewers on the PR).
 
 ### 5. Review gate — the ONLY human interaction
 Present together, as a status report (not a question at the keyboard user):
@@ -69,13 +71,14 @@ git checkout "$AGENT_BRANCH"
 git fetch origin main && git reset --hard origin/main   # agent branch now mirrors main exactly
 git branch -D "$PR_BRANCH" 2>/dev/null || true
 ```
-Move the task file to `status: done`.
+Mark the studio task done: `update_task` with `status: done` and the merged PR (the backend
+requires a merged PR for the `done` transition).
 
 ### 7. Build report
-Post (or append to the task file) a build report — three sections from the core's
-`renderBuildReport`: **How we implemented it**, **Decisions off-spec**, **Learnings**. Omit empty
-sections. **Never auto-create follow-on tasks** — list candidates as bullets in the learnings; ask
-the user whether to create any.
+Post a build report as a comment on the studio task (`create_comment`) — three sections from the
+core's `renderBuildReport`: **How we implemented it**, **Decisions off-spec**, **Learnings**. Omit
+empty sections. **Never auto-create follow-on tasks** — list candidates as bullets in the
+learnings; ask the user whether to create any.
 
 ## Rules
 - **Never skip the task check** — SDLC traceability.
