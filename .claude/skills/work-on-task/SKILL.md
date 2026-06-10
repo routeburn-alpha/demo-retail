@@ -34,8 +34,11 @@ This marks the task `inProgress` and assigns it to the registered agent (registe
 Work only ever happens on the agent branch (`agent/$AGENT_NAME`).
 1. `git rev-parse --abbrev-ref HEAD` must equal `agent/$AGENT_NAME`. If it's a `{id}-…` PR branch
    or anything else, **abort** — a leftover branch means a previous session didn't finish cleanly.
-2. No open PR from this agent (`gh pr list --author "@me" --state open`). If there is one, **abort**
-   — the prior PR must merge or close first.
+2. No unfinished submitted work from **this agent**: `get_tasks(agent: "$AGENT_NAME", status:
+   "review")` (studio-wide). Non-empty → that PR must merge or close first, so **abort**. Scope this
+   by **agent**, not by GitHub account — in the fleet all agents push as one git identity, so
+   `gh pr list --author "@me"` returns *other* agents' open PRs and trips this gate falsely. The
+   agent's own identity lives in studio-ai, so query there.
 3. Clean tree + no unpushed commits: `git fetch origin main`, `git status --porcelain`,
    `git log --oneline origin/main..HEAD`. Non-empty either → abort.
 4. Only after 1–3 pass: `git reset --hard origin/main`.
