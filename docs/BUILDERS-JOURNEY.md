@@ -350,7 +350,8 @@ rails that make it trustworthy no matter who — or what — is building.
 ## Deck mapping
 
 Each section maps to a slide, so this doc is the deck's script. (Aligned with the ~6-minute demo
-narrative in [`FRAMEWORK.md`](../FRAMEWORK.md#suggested-demo-narrative-6-minutes).)
+narrative in [`FRAMEWORK.md`](../FRAMEWORK.md#suggested-demo-narrative-6-minutes); the full
+presenter script — commands, talking points, timing — is [`docs/DEMO-SCRIPT.md`](DEMO-SCRIPT.md).)
 
 | Slide | Doc section | The one-line message |
 |-------|-------------|----------------------|
