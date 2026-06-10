@@ -49,13 +49,13 @@ const data = { catalog, synonyms };
 
 describe('Tarn & Trail storefront', () => {
   it('typing "trainers" returns trail-runner products via synonym substitution', async () => {
-    const screen = render(StorefrontPage, { props: { data } });
+    const screen = render(StorefrontPage, { data });
     await screen.getByLabelText('Search').fill('trainers');
     await expect.element(screen.getByText('Cascade Trail Runner')).toBeVisible();
   });
 
   it('typing a nonsense query shows the popular-query pills with the right labels', async () => {
-    const screen = render(StorefrontPage, { props: { data } });
+    const screen = render(StorefrontPage, { data });
     await screen.getByLabelText('Search').fill('xyzpdq');
     await expect.element(screen.getByTestId('zero-results')).toBeVisible();
     for (const label of POPULAR_QUERIES) {
@@ -64,34 +64,34 @@ describe('Tarn & Trail storefront', () => {
   });
 
   it('clicking a pill re-runs the search with that text', async () => {
-    const screen = render(StorefrontPage, { props: { data } });
+    const screen = render(StorefrontPage, { data });
     await screen.getByLabelText('Search').fill('xyzpdq');
     await screen.getByRole('button', { name: 'trail runners' }).click();
     await expect.element(screen.getByText('Cascade Trail Runner')).toBeVisible();
   });
 
   it('multi-synonym query: "rucksack trainers" returns BOTH backpack AND trail runner', async () => {
-    const screen = render(StorefrontPage, { props: { data } });
+    const screen = render(StorefrontPage, { data });
     await screen.getByLabelText('Search').fill('rucksack trainers');
     await expect.element(screen.getByText('Tarn 38L Backpack')).toBeVisible();
     await expect.element(screen.getByText('Cascade Trail Runner')).toBeVisible();
   });
 
   it('keyword precision: "shell" matches the shell jacket but NOT the gloves whose description mentions "shell mitt"', async () => {
-    const screen = render(StorefrontPage, { props: { data } });
+    const screen = render(StorefrontPage, { data });
     await screen.getByLabelText('Search').fill('shell');
     await expect.element(screen.getByText('Storm Cirrus Shell')).toBeVisible();
     await expect.element(screen.getByText('Windproof Liner Gloves')).not.toBeInTheDocument();
   });
 
   it('case-insensitive: typing "TRAINERS" returns trail-runner products', async () => {
-    const screen = render(StorefrontPage, { props: { data } });
+    const screen = render(StorefrontPage, { data });
     await screen.getByLabelText('Search').fill('TRAINERS');
     await expect.element(screen.getByText('Cascade Trail Runner')).toBeVisible();
   });
 
   it('result-count label trims surrounding whitespace from the displayed query', async () => {
-    const screen = render(StorefrontPage, { props: { data } });
+    const screen = render(StorefrontPage, { data });
     await screen.getByLabelText('Search').fill('  trainers  ');
     await expect.element(screen.getByText(/for "trainers"/i)).toBeVisible();
   });

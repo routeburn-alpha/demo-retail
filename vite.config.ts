@@ -1,16 +1,7 @@
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vitest/config';
 
+// Test config lives in vitest.workspace.ts (browser + node projects).
 export default defineConfig({
-  plugins: [sveltekit()],
-  test: {
-    browser: {
-      enabled: true,
-      provider: 'playwright',
-      name: 'chromium',
-      headless: true
-    },
-    include: ['src/**/*.{test,spec}.{js,ts}'],
-    setupFiles: []
-  }
+  plugins: [sveltekit()]
 });

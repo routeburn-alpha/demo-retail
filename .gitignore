@@ -15,3 +15,4 @@ playwright-report
 __screenshots__
 static/products/originals
 .DS_Store
+.env*.local
