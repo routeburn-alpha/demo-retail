@@ -1,0 +1,69 @@
+# Server-side safety net that mirrors the local `/precommit` gate (FRAMEWORK.md
+# Opinion 5: "the push gate is the only door"). It does NOT replace `/precommit`
+# — it re-runs the same gate after push so a change that bypassed the local gate
+# cannot reach `main` unnoticed.
+#
+# The gate is the full `npm run precommit` (check -> build -> test) in the exact
+# local order. Tests run against REAL services (standards/no-mocks.md): real
+# Chromium for browser-mode component tests, real Neon Postgres for the DB
+# integration test. `queries.test.ts` SKIPS when DATABASE_URL is absent, so we
+# require the `DATABASE_URL` secret and apply the schema with `db:push` before
+# the gate — if the secret is missing, `db:push` fails and the job goes red
+# rather than silently skipping the no-mocks test.
+#
+# REQUIRED repo configuration: a `DATABASE_URL` Actions secret pointing at a real
+# Postgres (ideally a dedicated Neon branch DB so CI never shares state with
+# dev/prod). Set it on the canonical repo that owns the GitHub<->Vercel
+# integration (routeburn-alpha/demo-retail).
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  # Also run on direct pushes to non-main branches so a feature branch is gated
+  # even before its PR exists. PRs into main are covered by the event above.
+  push:
+    branches-ignore: [main]
+
+# A newer push to the same branch supersedes an in-flight run; cancel the old one.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+# Least privilege: the gate only needs to read the repo.
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    name: precommit gate
+    runs-on: ubuntu-latest
+    env:
+      # Real Postgres for the no-mocks integration test. Absent secret -> db:push
+      # fails -> job red (the intended "never silently skip" behavior).
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          # Mirror the local gate's Node line (this checkout runs Node 22.x).
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        # Browser-mode component tests (vitest-browser-svelte) need a real browser.
+        run: npx playwright install --with-deps chromium
+
+      - name: Apply database schema
+        # Create the schema in the CI database so the integration test runs for
+        # real instead of skipping. Mirrors what a dev's local DB already has.
+        run: npm run db:push
+
+      - name: Run precommit gate (check -> build -> test)
+        run: npm run precommit
