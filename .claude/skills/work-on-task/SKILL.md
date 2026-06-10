@@ -16,18 +16,19 @@ the hand-off to `/precommit`.
 
 ## When to use
 
-Default for every task. `/work-on-task <id>` to pick a specific backlog task, or `/work-on-task`
-to take the next one.
+Default for every task. `/work-on-task <productCode> <taskNumber>` to pick a specific studio task,
+or `/work-on-task` to take the next one.
 
 ## Flow
 
 ### 1. Pick up the task
-- Id passed: open `backlog/<id>-*.md`.
-- No argument: take the lowest-numbered file in `backlog/` that is `status: ready`.
+Tasks live in **studio-ai** (over MCP), not in files. Claim with `work_on_next_task`:
+- Id passed: `work_on_next_task(productCode, taskNumber)` for that specific task.
+- No argument: `work_on_next_task(productCode)` — claims the oldest `backlog` task.
 
-Move it to `status: in-progress` and stamp the agent name. Read the spec, acceptance criteria, and
-the seeded **standards** (`standards/` — these are the gate). Show task title and acceptance
-criteria.
+This marks the task `inProgress` and assigns it to the registered agent (register once with
+`register_agent` if `list_agents` is empty). Read the spec, acceptance criteria, and the seeded
+**standards** (`standards/` — these are the gate). Show task title and acceptance criteria.
 
 ### 2. Sync environment
 Work only ever happens on the agent branch (`agent/$AGENT_NAME`).
