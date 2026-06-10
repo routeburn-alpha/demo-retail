@@ -139,8 +139,49 @@ code. First comes the plan — and the gate that checks it.
 
 ## Stage 2 — Plan & the standards gate (touch 1)
 
-> _Filled in by task #14 (Stage 2)._ Reading the spec + standards; the plan self-challenge before
-> any code; standards as data (no-mocks; campground rule); this is the first of two gate touches.
+The task is claimed; the context is in front of you. The temptation now is to start typing code. The
+framework doesn't let you — and that pause is the point. Before a single line of production code, a
+builder reads the task's spec and acceptance criteria, reads the seeded **standards** that came in
+with the context, sizes the work (*small* or *non-trivial* — a non-trivial task earns a fuller,
+synchronously-approved plan), and writes the plan down: one paragraph naming the test that will
+prove the change, then a self-challenge of that plan against every standard in the repo.
+
+That self-challenge is the **gate** — the first of two times the standards are enforced on this
+change (the second is at the push, Stage 4). It isn't a checklist you skim. It's a literal table,
+**one row per standard**, where you state whether the plan honours it and, if not, how the plan
+changes before any code is written:
+
+| Standard | Plan respects it? | Adjustment if not |
+|----------|-------------------|-------------------|
+| Tests run against real services (no mocks) | yes / no / N/A | …how the plan changes, or "—" |
+| Leave touched files cleaner (campground, scoped) | yes / no / N/A | …how the plan changes, or "—" |
+
+Filling that table out *honestly* is the work. The two standards in this repo each carry an intent
+worth internalising. **Tests run against real services** says every test exercises the real thing —
+a real Postgres, a real Svelte component rendered in a real browser, real HTTP to the dev server —
+never a mocked `fetch` or a faked database; the only sanctioned stub is a service with
+unrecoverable side effects (email, SMS, live payments). It exists because a green suite full of
+mocks proves only that your mocks agree with themselves. **Leave touched files cleaner** is the
+campground rule, deliberately *scoped*: clean the dead code and unused imports out of the files you
+already had to open — and *only* those files. It resolves the tension with minimal-change by
+drawing the boundary at "the campsite you're standing in," not the whole forest; anything bigger is
+a backlog candidate for the build report, not a detour now.
+
+What makes this more than a process diagram is that **the standards are data, not vibes.** They live
+as records seeded into the studio — `standards/*.md` files promoted into the system as context
+documents — so they're injected at pickup, challenged here at plan time, and re-listed verbatim at
+the push gate. There's no "team principles" wiki that quietly rots while the code drifts away from
+it; the rules the builder answers to are the same rules the gate re-checks, because they're the same
+records. Add a standard and every builder after you self-challenges against it automatically.
+
+And the timing is the quiet bet of the whole stage: **gate at plan time, not at review time.** A
+standard caught while the plan is still a paragraph costs a sentence to fix. The same gap caught in
+review — after the code is written, the test is wired to a mock, the PR is open — costs a rewrite
+and a round-trip. Moving the gate to *before* the code changes what actually gets built, not just
+what gets flagged; the cheapest defect is the one a plan never commits to. A human does this self-
+challenge in plan mode; an autonomous agent emits the identical table inline before it writes a
+line — same gate, same rows, same moment, whoever holds the task. Only once the plan survives its
+own standards does the builder earn the next step: writing the test.
 
 ## Stage 3 — Build test-first
 
