@@ -1,5 +1,7 @@
-import type { ProductRow } from './schema';
+import type { ProductRow, CategoryFacetOrderRow, DefaultFacetOrderRow } from './schema';
+import type { NewCategoryFacetOrderRow } from './schema';
 import type { Product } from '$lib/storefront/search';
+import type { FacetOrder, CategoryFacetConfig } from '$lib/domain/facets';
 
 /**
  * Map a DB row to the storefront `Product` shape (price in whole dollars).
@@ -14,4 +16,27 @@ export function toProduct(row: ProductRow): Product {
     description: row.description,
     imageUrl: row.imageUrl
   };
+}
+
+/**
+ * Map a facet-order row (category-specific or default) to the domain `FacetOrder`,
+ * dropping persistence-only fields (id, category_slug, created_at). Pure.
+ */
+export function toFacetOrder(row: CategoryFacetOrderRow | DefaultFacetOrderRow): FacetOrder {
+  return {
+    facetKey: row.facetKey,
+    displayOrder: row.displayOrder
+  };
+}
+
+/**
+ * Expand a category facet config into the insert rows the adapter persists.
+ * Pure — the inverse boundary to `toFacetOrder` (ARCHITECTURE §2.3).
+ */
+export function toCategoryFacetOrderRows(config: CategoryFacetConfig): NewCategoryFacetOrderRow[] {
+  return config.facetOrders.map((facetOrder) => ({
+    categorySlug: config.categorySlug,
+    facetKey: facetOrder.facetKey,
+    displayOrder: facetOrder.displayOrder
+  }));
 }
