@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "studio-ai": {
+      "type": "http",
+      "url": "https://app.routeburn.org/api/mcp",
+      "headers": {
+        "Authorization": "Bearer ${STUDIO_AI_TOKEN}",
+        "X-Agent-Name": "${AGENT_NAME}"
+      }
+    }
+  }
+}
