@@ -64,12 +64,16 @@ Say "Awaiting review on the PR." Wait for explicit approval before merging. On f
 changes, `git commit --amend --no-edit`, re-run Step 2, `git push --force-with-lease`, re-present.
 
 ### 6. Merge & reset
-On approval:
+On approval. **Checkout the agent branch before merging and avoid `gh --delete-branch`:** `main` is
+checked out in a sibling worktree, so `gh`'s post-merge `git checkout main` would be refused
+(`fatal: 'main' is already used by worktree ...`). Get off the PR branch first and delete branches
+explicitly so `gh` never touches local git state:
 ```bash
-gh pr merge "$PR_BRANCH" --squash --delete-branch
-git checkout "$AGENT_BRANCH"
-git fetch origin main && git reset --hard origin/main   # agent branch now mirrors main exactly
-git branch -D "$PR_BRANCH" 2>/dev/null || true
+git checkout "$AGENT_BRANCH"                                  # leave the PR branch BEFORE merging
+gh pr merge "$PR_BRANCH" --squash                             # remote squash-merge only — no local git ops
+git push origin --delete "$PR_BRANCH" 2>/dev/null || true    # delete the remote PR branch explicitly
+git fetch origin main && git reset --hard origin/main         # agent branch now mirrors main exactly
+git branch -D "$PR_BRANCH" 2>/dev/null || true                # delete the local PR branch
 ```
 Mark the studio task done: `update_task` with `status: done` and the merged PR (the backend
 requires a merged PR for the `done` transition).
