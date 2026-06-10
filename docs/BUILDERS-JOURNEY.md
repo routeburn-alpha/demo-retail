@@ -235,9 +235,46 @@ demands, because nothing reaches `main` until the gate runs it all again.
 
 ## Stage 4 — Ship through the gate & the CI/CD pipeline
 
-> _Filled in by task #16 (Stage 4)._ `/precommit` as the only door; the gate order
-> (check → build → test); standards re-confirm (touch 2); the PR; the server-side CI/CD pipeline
-> that runs the same gate before deploy; Vercel preview/prod.
+There is exactly one way to push, and it isn't `git push`. A builder ships by running **`/precommit`**
+— the single door every change walks through to reach the world. That's a deliberate constraint, not
+a convenience: if there are many ways to land code, only one of them gets the checks, and the others
+become the holes drift pours through. So the door is narrow on purpose, and behind it runs the
+**gate**: `check → build → test`, in that order, every phase green, on a freshly-rebased base. The
+order is fail-fast — `check` (svelte-check on the app plus `tsc` on the framework's own code) catches
+a type error in a second before `build` spends longer, and `build` proves the bundle compiles before
+the slowest, most valuable phase, `test`, runs the real-service suite from Stage 3. A red phase stops
+the push. There is no "that test was already failing," no "it's flaky, unrelated" — the rule is the
+whole point of having a rule, and a builder fixes the red rather than narrating around it.
+
+Just before the PR opens, the standards come back one more time. `/precommit` **re-lists every seeded
+standard** and the builder confirms, with evidence, that this specific changeset meets each — naming
+the test that hits the real service, naming the dead import removed from a touched file. This is the
+**second of the standards gate's two touches**: the plan was challenged against the standards *before*
+any code (Stage 2), and now the finished diff is checked against the same records *before* it can
+leave. Gated going in, gated coming out — and both times against the identical seeded standards, so
+what was promised at plan time is exactly what's verified at ship time.
+
+Passing the local gate opens the PR — and the gate immediately runs *again*, this time on a server
+nobody can lean on. A GitHub Actions workflow (`.github/workflows/ci.yml`) re-runs the **same full
+`npm run precommit`** — check → build → test, same order — on every PR into `main` and on pushes to
+feature branches. It runs the **same real services**, too: real Chromium for the browser-mode
+component tests, a real Neon Postgres reached through a `DATABASE_URL` secret with the schema applied
+by `db:push` first — so the no-mocks standard holds in CI exactly as it does locally. If that DB
+secret is ever missing the job fails red rather than silently skipping the integration test; the
+safety net refuses to pretend. And a safety net is precisely what it is: it does not *replace*
+`/precommit`, it backs it up, so that even a change that somehow bypassed the local door still cannot
+reach `main` with a red build or test. Defense in depth — the same gate, enforced twice, once where
+the builder stands and once where they can't reach.
+
+From there the path to production is short and mechanical. The open PR gets a **Vercel preview
+deployment** of its own — a live URL a reviewer can click before approving (which is exactly what the
+next stage turns on). Once it earns its single human sign-off and is **squash-merged to `main`**,
+Vercel deploys that commit to **production** — preview-per-PR, production-on-`main` — with **Neon
+Postgres (via the Vercel Marketplace)** backing both environments. None of this bends for an
+autonomous builder: a managed agent runs the identical `/precommit`, opens a PR, and faces the same
+red-or-green CI, because the server-side gate neither knows nor cares whether a human or an agent
+typed the code. What it does care about is the one thing the gate can't supply on its own — a human
+who looks at the change and says yes. That sign-off is the next stage.
 
 ## Stage 5 — Review, sign-off & merge
 
