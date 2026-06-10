@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { toProduct } from './map';
-import type { ProductRow } from './schema';
+import { toProduct, toFacetOrder, toCategoryFacetOrderRows } from './map';
+import type { ProductRow, CategoryFacetOrderRow } from './schema';
 
 const row: ProductRow = {
   id: 'shell-001',
@@ -42,5 +42,47 @@ describe('toProduct', () => {
     expect(keys).not.toContain('active');
     expect(keys).not.toContain('collection');
     expect(keys).not.toContain('priceCents');
+  });
+});
+
+const facetRow: CategoryFacetOrderRow = {
+  id: 1,
+  categorySlug: 'tents',
+  facetKey: 'season',
+  displayOrder: 2,
+  createdAt: new Date('2026-01-01T00:00:00Z')
+};
+
+describe('toFacetOrder', () => {
+  it('keeps only the domain fields', () => {
+    expect(toFacetOrder(facetRow)).toEqual({ facetKey: 'season', displayOrder: 2 });
+  });
+
+  it('does not leak persistence-only fields (id, categorySlug, createdAt)', () => {
+    const keys = Object.keys(toFacetOrder(facetRow));
+    expect(keys).not.toContain('id');
+    expect(keys).not.toContain('categorySlug');
+    expect(keys).not.toContain('createdAt');
+  });
+});
+
+describe('toCategoryFacetOrderRows', () => {
+  it('expands a config into one insert row per facet, stamping the category', () => {
+    expect(
+      toCategoryFacetOrderRows({
+        categorySlug: 'tents',
+        facetOrders: [
+          { facetKey: 'season', displayOrder: 1 },
+          { facetKey: 'capacity', displayOrder: 2 }
+        ]
+      })
+    ).toEqual([
+      { categorySlug: 'tents', facetKey: 'season', displayOrder: 1 },
+      { categorySlug: 'tents', facetKey: 'capacity', displayOrder: 2 }
+    ]);
+  });
+
+  it('maps an empty config to no rows', () => {
+    expect(toCategoryFacetOrderRows({ categorySlug: 'tents', facetOrders: [] })).toEqual([]);
   });
 });
