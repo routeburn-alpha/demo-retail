@@ -1,276 +1,207 @@
-# Architecture — Tarn & Trail Demo Storefront
+# Architecture & Technical-Design Rulebook — Tarn & Trail
 
-A minimal, single-page outdoor-gear storefront. It is the customer-facing
-artifact for the seeded `demo-alpha / search-discovery` studio in
-[studio-ai](https://studio-ai-one.vercel.app/), and exists to make a small
-number of "search & discovery" product ideas visible and clickable.
+This is the **authoritative technical-design context** for the Tarn & Trail storefront and the
+`search-discovery` studio that drives it. Every spec, idea technical-design, and task in studio-ai
+should be written and reviewed against the rules below. It is intentionally **prescriptive**: it
+uses **MUST / SHOULD / MAY** the way [`standards/`](standards/) does, because in this repo design
+conventions are a gate, not a suggestion (see [`FRAMEWORK.md`](FRAMEWORK.md), Opinion 4).
 
-This document describes how the app is put together: its stack, its data flow,
-its rendering model, and the seams where future features are meant to be added.
+> Read order for a new agent: [`FRAMEWORK.md`](FRAMEWORK.md) (the SDLC) → this file (how code is
+> shaped) → [`standards/`](standards/) (the active gate) → [`sdlc/core.md`](sdlc/core.md).
 
 ---
 
 ## 1. At a glance
 
-| Concern            | Choice                                                        |
-| ------------------ | ------------------------------------------------------------ |
-| Framework          | SvelteKit 2 + Svelte 5 (runes: `$state`, `$derived`, `$props`) |
-| Language           | TypeScript (strict, `checkJs`)                               |
-| Bundler / dev      | Vite 5                                                        |
-| Styling            | Tailwind CSS 3 + CSS custom properties for the palette       |
-| Rendering          | **Fully prerendered** static page (`prerender = true`)        |
-| Deploy target      | Vercel via `@sveltejs/adapter-vercel`, configured by `vercel.ts` |
-| Tests              | Vitest in **real browser mode** (Playwright/Chromium) + `vitest-browser-svelte` |
-| Server-side code   | None. There is no API, no database, no auth.                 |
+| Concern          | Choice                                                                 |
+| ---------------- | --------------------------------------------------------------------- |
+| Framework        | SvelteKit 2 + Svelte 5 (runes: `$state`, `$derived`, `$props`)         |
+| Language         | TypeScript (strict, `checkJs`); framework code held to the same gate   |
+| Persistence      | Postgres (Neon, via Vercel Marketplace) + Drizzle ORM (`postgres-js`)  |
+| Data access      | Layered ports-and-adapters under `src/lib/server/db/`                  |
+| Rendering        | Catalog loaded **server-side** from Postgres (`+page.server.ts`); search runs client-side |
+| Styling          | Tailwind CSS 3 + CSS custom-property palette                          |
+| Deploy target    | Vercel via `@sveltejs/adapter-vercel`, configured by `vercel.ts`      |
+| Tests            | Vitest two-runtime workspace — real browser (Playwright) + real Postgres |
+| Build/test gate  | `npm run precommit` = `check && build && test`, run pre-push by the agent |
 
-The entire application is one route (`/`). All "search" happens client-side in
-the browser against JSON shipped as static assets.
+> **Note on history:** earlier revisions of this app were fully client-side with no database. That
+> is no longer true — a real Drizzle/Postgres domain layer (products, inventory, carts, orders, and
+> a hidden `elsewhere` collection) now backs the storefront. Treat this document, not git memory or
+> older prose, as ground truth.
 
 ---
 
-## 2. Directory map
+## 2. The layered data architecture (ports & adapters)
+
+The data layer is **hexagonal-lite**: the application talks to a small port that returns *domain
+types*, and the persistence details (Drizzle, Postgres, cents-vs-dollars) stay behind an adapter +
+an anti-corruption mapping. The current `src/lib/server/db/` layer is the reference implementation.
 
 ```
-demo-retail/
-├── src/
-│   ├── app.html                     # HTML shell; SvelteKit injects head/body
-│   ├── app.css                      # Tailwind directives + :root color tokens
-│   ├── lib/
-│   │   └── storefront/
-│   │       ├── search.ts            # Pure search + synonym-expansion logic
-│   │       └── popular-queries.ts   # Static list of zero-results suggestions
-│   └── routes/
-│       ├── +layout.svelte           # Imports global CSS, renders children
-│       ├── +page.ts                 # load(): fetches catalog + synonyms; prerender flag
-│       ├── +page.svelte             # The whole UI (header, hero, grid, search, zero-results)
-│       └── page.svelte.test.ts      # Browser tests for the page behavior
-├── static/
-│   ├── catalog.json                 # 15 products (the source of truth for inventory)
-│   ├── synonyms.json                # query-term → canonical-term expansions
-│   ├── favicon.svg
-│   └── products/*.jpg               # one product image per catalog item
-├── vercel.ts                        # Vercel project config (framework: sveltekit)
-├── svelte.config.js                 # adapter-vercel + vitePreprocess
-├── vite.config.ts                   # Vite + Vitest (browser/Playwright) config
-├── tailwind.config.js               # palette bound to CSS vars; serif display font
-├── postcss.config.js                # tailwind + autoprefixer
-└── tsconfig.json                    # extends generated .svelte-kit/tsconfig.json
+  routes/+page.server.ts          ← consumer: calls the PORT, never the ORM
+        │  listCoreProducts()
+        ▼
+  db/queries.ts                   ← PORT / application service (returns domain Product[])
+        │ composes
+        ├── db/select.ts          ← ADAPTER: query builders, take `database` as a PARAMETER (DI seam)
+        ├── db/map.ts             ← ANTI-CORRUPTION: pure ProductRow → Product (cents → dollars)
+        └── db/index.ts           ← COMPOSITION ROOT: lazy singleton connection, env, Neon pooler
+  db/schema.ts                    ← PERSISTENCE MODEL: Drizzle tables + $inferSelect/$inferInsert
 ```
 
-Convention: anything reusable and framework-agnostic lives under
-`src/lib/storefront/` and is imported via the `$lib` alias. Route files own the
-UI and the data-loading contract.
+### 2.1 Data layer — REQUIRED shape
+
+Every bounded context that touches the database **MUST** provide these roles (one file each; small
+contexts MAY co-locate, but the responsibilities stay distinct):
+
+| File         | Single responsibility                                              | Rules |
+| ------------ | ----------------------------------------------------------------- | ----- |
+| `schema.ts`  | Drizzle table definitions + inferred row types                     | The **only** place table shape lives. Export `$inferSelect`/`$inferInsert` types; never hand-write row types. |
+| `select.ts`  | Query *builders*                                                    | **MUST** take the `database` (or transaction) as a **parameter** — never import the singleton. This is the seam that makes integration tests possible without `$env`. |
+| `map.ts`     | Pure persistence→domain mapping                                    | **MUST** be pure (no DB, no `$env`, no I/O). All unit conversions (e.g. `priceCents/100`) live here and **nowhere else**. |
+| `queries.ts` | The **port** the rest of the app calls                             | **MUST** return domain types (`Product`), **never** raw `ProductRow`. Composes `select` + `map` over the singleton `db`. |
+| `index.ts`   | Connection / composition root                                      | Lazy-initialised; reads `DATABASE_URL` from `$env/dynamic/private`; `prepare:false` for Neon's transaction pooler. Importing it **MUST NOT** require a live connection (build-time route analysis must not hit the DB). |
+
+### 2.2 API / port design rules
+
+- A port function **MUST** speak the domain language (`listCoreProducts(): Promise<Product[]>`), not
+  the ORM's. Callers never see Drizzle types.
+- Query builders **MUST** be parameterized by `database` so the same builder runs against the app
+  singleton in production and against a fresh test connection in integration tests.
+- Money is stored as integer cents (`priceCents`) and converted to dollars at exactly one boundary
+  (`map.ts`). No other layer does money arithmetic.
+- List ports **SHOULD** define explicit ordering and, once result sets can grow, pagination — do not
+  return unbounded selects as the catalogue scales.
+- Errors **SHOULD** surface as typed failures from the port; do not leak raw `postgres` errors to
+  routes.
+
+### 2.3 Adapter-model rules
+
+- `map.ts` is an **anti-corruption layer**: the persistence shape (`ProductRow`) and the domain shape
+  (`Product`) are allowed to diverge, and the mapper absorbs the difference. Keep it **one-directional
+  and pure**; add a reverse `toRow`/`toInsert` mapper when writes are introduced — do not let routes
+  build raw insert objects.
+- Adapters (`select.ts`) stay **thin**: build the query, return the rows, map elsewhere. No business
+  rules in the adapter beyond the filter that defines the view (e.g. "core = active, not hidden,
+  collection core").
+- The lazy `Proxy` singleton in `index.ts` is the connection provider. If a context needs an explicit
+  handle (tests, scripts), it **SHOULD** construct its own `drizzle(postgres(url))` rather than
+  reaching through the Proxy — exactly as `queries.test.ts` does.
+
+### 2.4 Known debt (fix as you touch these areas)
+
+1. **Domain type location.** The canonical `Product` type currently lives in
+   `$lib/storefront/search.ts` and the DB layer imports it from there — the data layer depending on a
+   feature module is backwards. New work **SHOULD** promote `Product` to a neutral home
+   (`$lib/domain/`) and re-point imports.
+2. **Test-data isolation under the fleet.** Integration tests use fixed sentinel IDs (`__test__core`,
+   …) against a shared Neon database. The framework runs N parallel worktree agents (Opinion 7) — fixed
+   IDs **will** collide. New DB tests **MUST** use per-run unique namespaces (or transaction-rollback
+   fixtures), not shared constant IDs. See §4.3.
 
 ---
 
-## 3. Rendering & data flow
+## 3. Modularization — modular monolith, not monorepo
 
-The app is a **static site**. There is no runtime server work in the request
-path; the page and its data are baked at build time and served as files.
+**Decision: this stays a single SvelteKit package.** Organize by **bounded context**, not by
+splitting into separate packages.
 
-```
-            build time                            browser (client)
-  ┌──────────────────────────────┐      ┌─────────────────────────────────┐
-  │ +page.ts  load()             │      │  +page.svelte                   │
-  │   prerender = true           │      │    query  = $state('')          │
-  │   fetch /catalog.json   ─────┼──┐   │    results = $derived(          │
-  │   fetch /synonyms.json  ─────┼┐ │   │       search(query, catalog,    │
-  │   → { catalog, synonyms }    ││ │   │              synonyms))         │
-  └──────────────────────────────┘│ │   │                                 │
-                                   │ │   │  search.ts runs entirely        │
-  static/catalog.json   ◄──────────┘ │   │  in-browser on every keystroke  │
-  static/synonyms.json  ◄────────────┘   └─────────────────────────────────┘
-```
-
-1. **`+page.ts → load()`** fetches `/catalog.json` and `/synonyms.json` in
-   parallel and returns `{ catalog, synonyms }` as the page's `data` prop.
-   Because `export const prerender = true`, SvelteKit executes this at build
-   time and emits a static HTML page plus a data payload — the two JSON files
-   are effectively inlined into the prerendered output.
-2. **`+page.svelte`** receives `data` via `$props()`. It holds a single piece
-   of reactive state, `query`, and derives `results` from it. No fetch, no
-   store, no effect — the derivation re-runs automatically when `query` changes.
-3. **`search.ts`** is the only "engine." It is a pure function library with no
-   imports and no side effects, which is why it is trivial to unit-test and
-   safe to run on every keystroke.
-
-The deliberate consequence: the catalog and synonym dictionary are the **only**
-data sources, and both are editable plain-JSON files in `static/`. Adding a
-product or a synonym requires no code change.
+- New domains (catalog, cart, orders, search, recommendations) **MUST** live as
+  `src/lib/<context>/` (UI/pure logic) and `src/lib/server/<context>/` (data access), each following
+  the §2.1 file roles.
+- Cross-context imports **SHOULD** go through a context's port (its `queries.ts` / public module), not
+  into its internals. A context owns its tables; another context reads them via the owner's port.
+- **Do NOT introduce a monorepo** (pnpm/turbo workspaces) yet. There is one deploy target and one
+  team; a monorepo would add build/tooling tax for no independent-release benefit. Revisit *only* when
+  a piece needs its own deploy cadence, runtime, or team boundary. Capture that trigger as a studio
+  idea — do not pre-build for it.
+- The five studio "products" (search, browse, recommendations, merchandising, platform) are
+  **product/roadmap groupings, not package boundaries.** They map to bounded contexts inside this one
+  app.
 
 ---
 
-## 4. The search engine (`src/lib/storefront/search.ts`)
+## 4. Testing strategy
 
-This file is the conceptual heart of the demo. It is ~50 lines and exports two
-functions plus the core types.
+Two runtimes, one workspace ([`vitest.workspace.ts`](vitest.workspace.ts)): a **browser** project
+(`*.svelte.test.ts` in real headless Chromium via Playwright) and a **node** project (everything
+else, with `DATABASE_URL` loaded from `.env.local` by `vitest.setup.node.ts`).
 
-### Types
+### 4.1 Real services — no mocks (the hard rule)
 
-```ts
-type Product  = { id; name; category; price; description; imageUrl }
-type Synonyms = Record<string, string[]>   // term → list of canonical expansions
-```
+Per [`standards/no-mocks.md`](standards/no-mocks.md):
 
-### `applySynonyms(query, synonyms): string[]`
+- Component tests **MUST** render real Svelte components in a real browser.
+- Server/DB tests **MUST** run against a real Postgres. **Never** mock `fetch`; **never** fake the DB.
+- A pure unit test is allowed **only** for logic with no I/O (e.g. `search.ts`, `map.ts`). If you
+  write one, state why it has no I/O.
+- The only permitted stub is a service with unrecoverable side effects (email, SMS, live payments).
 
-Produces a set of search phrases to try, given one user query:
+### 4.2 What to test where
 
-- Lowercases and trims the query.
-- For each synonym key found as a **whole word** (`\b…\b` regex), it:
-  - adds each expansion as its own candidate phrase, **and**
-  - builds a `rewritten` phrase where the key is replaced inline by its
-    expansions.
-- Returns the de-duplicated set: `{ original, …expansions, rewritten }`.
+| Subject                          | Test kind        | Runtime  | Example |
+| -------------------------------- | ---------------- | -------- | ------- |
+| Pure logic (search, mappers)     | Unit (no I/O)    | node     | `map.ts`, `search.ts` |
+| Query builders / ports           | Integration      | node     | `queries.test.ts` against real Postgres |
+| Component behavior / UI states   | Browser          | browser  | `page.svelte.test.ts` |
 
-This dual approach (expansions *and* an inline-rewritten phrase) is what makes
-multi-synonym queries work. `"rucksack trainers"` yields candidate phrases that
-let it match **both** backpacks and trail runners — verified by a test.
+### 4.3 Integration-test conventions (REQUIRED)
 
-### `search(query, catalog, synonyms): Product[]`
-
-A two-pass, AND-of-tokens matcher with a precision-first fallback:
-
-1. Empty query → return the whole catalog (the browse/landing state).
-2. Expand the query into phrases via `applySynonyms`.
-3. **Pass 1 (strict):** match against `name + category` only. A product matches
-   a phrase if **every** token in that phrase is a substring of the haystack;
-   the product matches overall if **any** candidate phrase matches.
-4. If pass 1 found anything, return it.
-5. **Pass 2 (fallback):** repeat including `description` in the haystack.
-
-The strict-first design is intentional and tested: searching `"shell"` returns
-the *Storm Cirrus Shell* (category/name hit) but **not** the gloves whose
-description merely mentions a "shell mitt." Description matching only kicks in
-when name/category matching yields nothing, keeping high-signal results from
-being diluted by incidental description mentions.
-
-> Characteristics worth knowing: matching is **substring**, not stemmed or
-> fuzzy (no typo tolerance — that's a planned future feature). It is
-> case-insensitive. Tokenization is whitespace-split. Everything runs O(catalog
-> × phrases × tokens) per keystroke, which is fine at 15 items and would need
-> rethinking at scale.
+- **Skip gracefully** when `DATABASE_URL` is absent (`const suite = url ? describe : describe.skip`),
+  and say so at the review gate rather than mocking.
+- **Own your data:** insert the rows the test asserts on; clean up in `beforeAll` *and* `afterAll`.
+- **Parallel-safe IDs:** generate a unique namespace per run; do **not** reuse fixed sentinel IDs
+  across the fleet (see §2.4.2). The current `__test__*` constants are debt to replace, not a pattern
+  to copy.
+- Pipe output to a log and read it back — never re-run just to see output again:
+  `npm run test 2>&1 | tee logs/test-output.log`.
 
 ---
 
-## 5. UI structure (`src/routes/+page.svelte`)
+## 5. The build & gate pipeline
 
-One component renders three mutually exclusive states driven entirely by
-`query`:
-
-| `query` state              | What renders                                              |
-| -------------------------- | -------------------------------------------------------- |
-| empty (`''`)               | Hero banner + full catalogue grid + item count           |
-| non-empty, `results > 0`   | Result count line + matched-product grid                 |
-| non-empty, `results === 0` | `zero-results` section with 5 clickable popular-query pills |
-
-Other UI notes:
-
-- **Search input** is the single source of truth: `bind:value={query}`. A clear
-  (✕) button appears once there's text and calls `setQuery('')`.
-- **Popular-query pills** come from `popular-queries.ts`. Clicking one calls
-  `setQuery(label)`, which flows back through the same reactive `query` →
-  `results` derivation — i.e. clicking a pill is identical to typing it.
-- **Product cards** carry `data-testid="product-card"`; the zero-results block
-  carries `data-testid="zero-results"`. These are the stable hooks the tests
-  (and any future automation) rely on.
-- The header is sticky; images are `loading="lazy"`; layout is responsive
-  Tailwind (2→3→4 column grid).
+- **Build:** `vite build` → `@sveltejs/adapter-vercel` emits Vercel-native output; `vercel.ts`
+  (`@vercel/config`) declares `framework: 'sveltekit'`, `buildCommand: 'npm run build'`.
+- **The gate (`npm run precommit`):** `check` (svelte-check on the app + `tsc` on framework code in
+  `sdlc/`/`scripts/`) → `build` → `test`. The framework's own code is held to the same gate as the app.
+- **There is no server-side CI today** — the gate runs locally/in-agent before push via
+  [`/precommit`](.claude/skills/precommit/SKILL.md) ("the push gate is the only door"). A change
+  **MUST** pass the full gate before it can land; do not rationalize a red test as pre-existing/flaky.
+- Merge & deploy are GitHub (squash-merge to `main`) + Vercel (preview per PR, production on `main`).
 
 ---
 
-## 6. Styling system
+## 6. Spec / technical-design checklist (for studio-ai)
 
-- **Tailwind** is the utility layer (`tailwind.config.js` scans `src/**`).
-- The **palette is indirected through CSS custom properties** defined in
-  `:root` in `app.css` (`--color-bg`, `--color-surface`, `--color-ink`,
-  `--color-muted`, `--color-accent`, `--color-line`). Tailwind's theme maps
-  semantic names (`bg`, `surface`, `ink`, …) to those vars, so colors can be
-  retheme­d in one place without touching markup.
-- A serif **display font** (`font-display` → Georgia) is used for brand/heading
-  text to give the storefront its editorial feel.
+Before a task or idea technical-design is "ready," confirm it answers each — this is the contract
+this rulebook exists to enforce:
 
----
-
-## 7. Testing
-
-Tests live in `src/routes/page.svelte.test.ts` and run under **Vitest in real
-browser mode** (Playwright-driven headless Chromium, configured in
-`vite.config.ts`). They render the actual Svelte component via
-`vitest-browser-svelte` and interact through accessible queries
-(`getByLabelText`, `getByRole`, `getByTestId`).
-
-The suite is behavior-focused and doubles as living documentation of the two
-headline features plus the search engine's edge cases:
-
-- synonym substitution (`trainers` → trail runners)
-- zero-results pills render with correct labels
-- clicking a pill re-runs the search
-- multi-synonym query returns products from both expansions
-- keyword precision (strict pass excludes incidental description matches)
-- case-insensitivity
-- displayed query is trimmed
-
-Run with `npm test` (single run) or `npm run test:watch`. Note that the test
-fixtures define their own small catalog/synonyms inline, so tests don't depend
-on `static/*.json`.
+1. **Bounded context** — which `src/lib/<context>/` does this belong to? New context or existing?
+2. **Domain model** — what tables/types change in `schema.ts`? New domain types, and where do they
+   live (neutral `$lib/domain/`, not inside a feature)?
+3. **Port** — what does the public `queries.ts` signature look like? Does it return domain types, not
+   rows? Is the query builder parameterized by `database`?
+4. **Adapter/mapping** — what `map.ts` changes (incl. reverse mapper for writes)? Where does any unit
+   conversion live?
+5. **Rendering** — server load (`+page.server.ts`) vs client; what data is fetched where?
+6. **Tests** — name the test file(s) and the **real** service each exercises (browser component / real
+   Postgres). Confirm parallel-safe data isolation. Justify any pure unit test (no I/O).
+7. **Standards** — one row per [`standards/`](standards/) entry, declaring how the plan respects it.
+8. **Scope** — minimal change; touched files left cleaner; follow-ups listed as learnings, **not**
+   spun off as new tasks autonomously (CLAUDE.md rule 8).
 
 ---
 
-## 8. Build & deployment
+## 7. Reference map
 
-- **`svelte.config.js`** uses `@sveltejs/adapter-vercel`. Because the only route
-  is fully prerendered, the build output is effectively a static site.
-- **`vercel.ts`** (the TypeScript successor to `vercel.json`, via
-  `@vercel/config`) declares `framework: 'sveltekit'` and
-  `buildCommand: 'npm run build'`, enabling Vercel preview/production deploys.
-- No environment variables, secrets, or backend services are required to build
-  or run. `.env*` files are gitignored but unused today.
-
-Scripts:
-
-| Command            | Purpose                                              |
-| ------------------ | ---------------------------------------------------- |
-| `npm run dev`      | Vite dev server (usually http://localhost:5173)      |
-| `npm run build`    | Production build (prerendered output)                |
-| `npm run preview`  | Serve the production build locally                   |
-| `npm run check`    | `svelte-kit sync` + `svelte-check` type checking     |
-| `npm test`         | Vitest browser tests, single run                     |
-
----
-
-## 9. Design decisions & their rationale
-
-- **Everything client-side and prerendered.** The demo needs to be cheap,
-  instantly hostable, and have zero operational surface. Doing search in the
-  browser against static JSON means there is no server to run, scale, or secure.
-- **Search logic isolated as a pure module.** `search.ts` has no framework
-  dependencies, so it can be exhaustively unit-tested and could be lifted into a
-  real backend later without rewrite.
-- **Data as editable JSON in `static/`.** Catalog and synonyms are content, not
-  code. This lets the storefront's inventory and the "shipped" synonym idea
-  evolve without touching components.
-- **Strict-then-fallback matching.** Encodes a real product-quality decision
-  (precision over recall) that the paired studio is meant to showcase, and it's
-  pinned by a test so future changes can't silently regress it.
-
----
-
-## 10. Where future features plug in
-
-This repo is paired with studio-ai task #1557, and follow-up tasks are expected
-to extend it (each linked to a real PR). The natural extension points:
-
-| Planned idea            | Most likely touch points                                          |
-| ----------------------- | ----------------------------------------------------------------- |
-| Typo tolerance          | `search.ts` matching pass (fuzzy/edit-distance before substring)  |
-| Product detail page (PDP)| new route `src/routes/products/[id]/`; reuse `Product` type + catalog |
-| Browse / category nav   | new route or `+page.svelte` state; filter on `category`           |
-| Facets / filters        | extend `search()` signature; add UI controls in `+page.svelte`    |
-| Recommendations         | new module in `src/lib/storefront/`; new data file in `static/`   |
-
-The two features shipped today — the **synonym dictionary**
-(`static/synonyms.json` + `applySynonyms`) and the **zero-results page**
-(`popular-queries.ts` + the `zero-results` block) — are the templates to follow:
-a small pure module, optionally a JSON data file, surfaced through one of the
-three render states, and covered by a browser test.
+| Layer / concern        | Where |
+| ---------------------- | ----- |
+| SDLC & opinions        | [`FRAMEWORK.md`](FRAMEWORK.md), [`sdlc/core.md`](sdlc/core.md) |
+| Agent rules            | [`CLAUDE.md`](CLAUDE.md) |
+| Active standards gate  | [`standards/`](standards/) |
+| Data layer             | `src/lib/server/db/{schema,select,map,queries,index}.ts` |
+| Pure storefront logic  | `src/lib/storefront/{search,popular-queries}.ts` |
+| Routes / rendering     | `src/routes/+page.server.ts`, `+page.svelte` |
+| Test config            | `vitest.workspace.ts`, `vite.config.ts`, `vitest.setup.node.ts` |
+| Build / deploy         | `svelte.config.js`, `vercel.ts`, `drizzle.config.ts` |
