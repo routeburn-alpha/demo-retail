@@ -9,6 +9,8 @@ the interactive and headless paths, and drift between "what we said our process 
 agent actually did." Every design choice below exists to remove a source of drift.
 
 This is the document to read first. Each opinion below maps to a concrete artifact you can open.
+For a narrative, newcomer-facing walkthrough of how these opinions play out when you ship one change
+— and the source for the demo deck — see [`docs/BUILDERS-JOURNEY.md`](docs/BUILDERS-JOURNEY.md).
 
 ---
 
