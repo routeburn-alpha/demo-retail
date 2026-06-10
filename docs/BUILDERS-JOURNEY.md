@@ -105,9 +105,37 @@ claiming a task, the start of a journey rather than a leap in the dark.
 
 ## Stage 1 — Pick up work
 
-> _Filled in by task #13 (Stage 1 — Pick up work)._ The studio as the single source of truth;
-> ideas → tasks; claiming **exactly one** task and why; the context from Stage 0 is injected here;
-> the agent fleet.
+A builder doesn't start by typing a prompt — they start by **claiming a unit of work that already
+exists**. All of it lives in one place: the studio. Product direction and the work that serves it
+are records there, queried over the studio's MCP — not scattered across a `backlog/` folder or a
+`ROADMAP.md` that drifts out of date the day after it's written. There is one source of truth, and
+everyone — every person, every agent — reads from it.
+
+Work is shaped in two layers. An **idea** is a hypothesis — *what we believe and want to prove* —
+carrying its own technical design and moving through validation stages (`backlog → firstLevel →
+secondLevel → scaling`, or `failed`, or `bau`) as evidence comes in. A **task** is a concrete slice
+of that idea, decomposed into something shippable in one pass. Tasks link back to their idea, so
+nothing gets built that can't answer "which bet is this serving?" — the first link in a lineage the
+build report later closes (Stage 6).
+
+Then the defining move: a builder claims **exactly one** task (`/work-on-task`, or `work_on_next_task`
+to take the oldest in the backlog). Claiming flips it to `inProgress` and stamps it with the
+builder's name — and you hold one at a time, no more. That isn't bureaucracy; it's what keeps the
+work honest. One task means one focus, one branch, one PR, one clean trace from hypothesis to merge.
+It pairs with the branch-hygiene invariant (Stage 5): a builder's branch returns to `origin/main`
+between tasks, so there's never a half-finished second thing to collide with. And the context from
+Stage 0 lands at exactly this moment — claiming the task is when its attached docs are injected.
+
+Because work is a claimable record rather than a conversation, the same move scales out. A **fleet**
+of builders can pull from the one backlog at once: some **supervised** (a human in the loop,
+approving at the gate), some **managed** (an autonomous Opus or Sonnet run walking the identical
+SDLC headless). Each works in its own git worktree with its own identity and dev-server port, so
+many can be mid-task at the same time without stepping on each other — as, while this very section
+was being written, a separate agent was independently claiming a `browse` task on its own branch.
+One source of truth, one task each, no collisions.
+
+With a task claimed and its context in hand, the builder still hasn't earned the right to write
+code. First comes the plan — and the gate that checks it.
 
 ## Stage 2 — Plan & the standards gate (touch 1)
 
