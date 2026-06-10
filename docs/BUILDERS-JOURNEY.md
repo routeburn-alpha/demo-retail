@@ -185,9 +185,53 @@ own standards does the builder earn the next step: writing the test.
 
 ## Stage 3 — Build test-first
 
-> _Filled in by task #15 (Stage 3)._ The failing test before the code, watching it fail,
-> implementing the minimum; the campground rule on touched files; the architecture rulebook and
-> real-services testing.
+Now the code — except the first thing a builder writes still isn't production code. It's the test
+that will prove the change, and it's written to **fail**. You add the test, run it, and *watch it go
+red* before a line of the feature exists. That sequence isn't ceremony; it's the only way to know
+the test can actually catch the thing it claims to. A test written *after* the code, or one that
+passes the moment you write it, has told you nothing — it might assert against the wrong value, hit
+the wrong path, or quietly test nothing at all. Seeing it fail for the *right reason* first is what
+makes the green that comes later trustworthy. Only then do you write the **minimum** code to turn it
+green — not the feature you imagine, the one the test demands — and broaden from there.
+
+That discipline is only as good as what the test runs against, which is where the **no-mocks**
+standard from Stage 2 stops being a row in a table and becomes the shape of the work. Tests here hit
+**real services**: a component test renders a real Svelte component in real headless Chromium
+(Playwright); a server-or-database test runs against a **real Postgres**, inserting and cleaning up
+its own rows. You never mock `fetch` and never fake the database — because a suite full of mocks
+only ever proves your mocks agree with each other, which is exactly the confidence you don't want.
+The two runtimes live in one Vitest workspace (a browser project for `*.svelte.test.ts`, a node
+project for everything else). The sole sanctioned escape is a service with unrecoverable side
+effects — email, SMS, live payments — and a pure unit test is allowed *only* for logic with no I/O
+at all, like the search matcher or a pure row-to-domain mapper.
+
+Real-service tests sound expensive until you see that the **architecture is built to make them
+cheap.** A builder works inside a rulebook, and its load-bearing rule is a ports-and-adapters data
+layer with a fixed five-file shape: `schema.ts` (the Drizzle tables — the one place table shape
+lives), `select.ts` (query builders that **take the database connection as a parameter**),
+`map.ts` (a pure, one-directional row-to-domain mapper where unit conversions like cents-to-dollars
+happen and nowhere else), `queries.ts` (the port the rest of the app calls — it returns domain
+types, never raw rows), and `index.ts` (the lazy connection root). That parameter on `select.ts` is
+the whole trick: it's the seam that lets the *same* query builder run against the app's pooled
+connection in production and against a fresh, throwaway connection in a test — no `$env`, no
+singleton, no mock required. Good boundaries and testability turn out to be the same property. The
+rest of the rulebook holds the line around that core: domain types live in a neutral home, not
+inside whichever feature happened to define them first; new domains are bounded contexts inside one
+SvelteKit package, because this is a **modular monolith, not a monorepo** — one deploy target, one
+team, no per-package build tax until something genuinely needs its own release cadence.
+
+As you open files to make the test pass, the **campground rule** applies: leave each file you
+touched cleaner than you found it — drop the dead code, the commented-out block, the unused import
+you had to read past. But *scoped* — only the files this task already made you open. The tempting
+refactor two directories over isn't this task's job; it's a line in the build report's learnings, a
+candidate someone can choose to pick up, not a detour that quietly balloons the diff. Clean the
+campsite you're standing in, not the whole forest.
+
+None of this changes when the builder is an agent: a managed run writes the same failing test,
+watches the same red, and earns the same green against the same real Postgres — the rail doesn't
+soften because no human is typing. What the builder now holds is a passing test backed by real
+services and a minimal implementation underneath it. That's precisely the artifact the next stage
+demands, because nothing reaches `main` until the gate runs it all again.
 
 ## Stage 4 — Ship through the gate & the CI/CD pipeline
 
