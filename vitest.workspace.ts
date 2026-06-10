@@ -2,7 +2,7 @@ import { defineWorkspace } from 'vitest/config';
 
 // Two runtimes, one source of test config:
 //  - browser: Svelte component tests (*.svelte.test.ts) in real Chromium
-//  - node:    server / pure-logic tests (everything else) in Node
+//  - node:    server / pure-logic / framework-script tests (everything else) in Node
 export default defineWorkspace([
   {
     extends: './vite.config.ts',
@@ -22,7 +22,7 @@ export default defineWorkspace([
     test: {
       name: 'node',
       environment: 'node',
-      include: ['src/**/*.test.ts'],
+      include: ['src/**/*.test.ts', 'scripts/**/*.test.ts'],
       exclude: ['src/**/*.svelte.test.ts'],
       setupFiles: ['./vitest.setup.node.ts']
     }
