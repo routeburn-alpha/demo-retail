@@ -1,3 +1,5 @@
+import type { FacetOrder } from '$lib/domain/facets';
+
 export type Product = {
   id: string;
   name: string;
@@ -8,6 +10,35 @@ export type Product = {
 };
 
 export type Synonyms = Record<string, string[]>;
+
+/**
+ * Order the facets available for the current results by a category's configured ordering,
+ * falling back to the default ordering. Pure (no I/O) — the caller (`+page.server.ts`) loads
+ * `categoryOrder` / `defaultOrder` via the facet-ordering port and passes them in.
+ *
+ * Rules: the category's facets come first in `displayOrder`, then any default-only facets in their
+ * `displayOrder` (so a category facet always precedes a default-only one, regardless of the numeric
+ * order value); facets configured in neither keep their original relative order at the end; only
+ * facets present in `available` are returned (a configured-but-absent facet is never invented).
+ */
+export function orderFacets(
+  available: string[],
+  categoryOrder: FacetOrder[],
+  defaultOrder: FacetOrder[] = []
+): string[] {
+  const rank = new Map<string, number>();
+  const byDisplayOrder = (a: FacetOrder, b: FacetOrder) => a.displayOrder - b.displayOrder;
+  // Category config first (wins overlaps), then the default config fills in the rest.
+  for (const config of [categoryOrder, defaultOrder]) {
+    for (const { facetKey } of [...config].sort(byDisplayOrder)) {
+      if (!rank.has(facetKey)) rank.set(facetKey, rank.size);
+    }
+  }
+  return available
+    .map((facetKey, index) => ({ facetKey, index, r: rank.get(facetKey) ?? Infinity }))
+    .sort((a, b) => a.r - b.r || a.index - b.index)
+    .map((entry) => entry.facetKey);
+}
 
 export function applySynonyms(query: string, synonyms: Synonyms): string[] {
   const lower = query.toLowerCase().trim();
