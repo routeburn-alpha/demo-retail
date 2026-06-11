@@ -47,7 +47,17 @@ const synonyms: Synonyms = {
 
 const data = { catalog, synonyms, category: null, facetOrder: [], defaultFacetOrder: [] };
 
-describe('Tarn & Trail storefront', () => {
+describe('Routeburn storefront', () => {
+  it('the brand renders as "ROUTEBURN" in the header', async () => {
+    const screen = render(StorefrontPage, { data });
+    await expect.element(screen.getByRole('link', { name: 'ROUTEBURN' })).toBeVisible();
+  });
+
+  it('the hero banner has a Routeburn trail backdrop image', async () => {
+    const screen = render(StorefrontPage, { data });
+    await expect.element(screen.getByTestId('hero-backdrop')).toBeInTheDocument();
+  });
+
   it('typing "trainers" returns trail-runner products via synonym substitution', async () => {
     const screen = render(StorefrontPage, { data });
     await screen.getByLabelText('Search').fill('trainers');
