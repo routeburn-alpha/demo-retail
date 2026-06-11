@@ -5,7 +5,8 @@
     "category": "shell jacket",
     "price": 320,
     "description": "Three-layer waterproof shell for alpine summer summits and shoulder-season rain. Pit zips, helmet-compatible hood.",
-    "imageUrl": "/products/shell-001.jpg"
+    "imageUrl": "/products/shell-001.jpg",
+    "department": "mens"
   },
   {
     "id": "down-001",
@@ -13,7 +14,8 @@
     "category": "down jacket",
     "price": 285,
     "description": "850-fill responsibly sourced down. A puffer light enough to stuff into a daypack but warm enough for camp at altitude.",
-    "imageUrl": "/products/down-001.jpg"
+    "imageUrl": "/products/down-001.jpg",
+    "department": "mens"
   },
   {
     "id": "fleece-001",
@@ -21,7 +23,8 @@
     "category": "fleece",
     "price": 110,
     "description": "Grid-knit midlayer that breathes uphill and holds heat at the col. Thumb loops, deep chest pocket.",
-    "imageUrl": "/products/fleece-001.jpg"
+    "imageUrl": "/products/fleece-001.jpg",
+    "department": "mens"
   },
   {
     "id": "base-001",
@@ -29,7 +32,8 @@
     "category": "base layer",
     "price": 95,
     "description": "200gsm New Zealand merino base layer. Odour-resistant for multi-day trips, flat seams that don't chafe under a pack.",
-    "imageUrl": "/products/base-001.jpg"
+    "imageUrl": "/products/base-001.jpg",
+    "department": "mens"
   },
   {
     "id": "tr-001",
@@ -37,7 +41,8 @@
     "category": "trail runner",
     "price": 145,
     "description": "Cushioned trail runner with 4mm lugs for mixed terrain. Wide forefoot, rock plate underfoot.",
-    "imageUrl": "/products/tr-001.jpg"
+    "imageUrl": "/products/tr-001.jpg",
+    "department": "mens"
   },
   {
     "id": "boot-001",
@@ -45,7 +50,8 @@
     "category": "hiking boot",
     "price": 245,
     "description": "Mid-cut waterproof hiking boot for tramping with a heavy pack. Lasting board for stability on rocky descents.",
-    "imageUrl": "/products/boot-001.jpg"
+    "imageUrl": "/products/boot-001.jpg",
+    "department": "mens"
   },
   {
     "id": "pack-001",
@@ -53,7 +59,8 @@
     "category": "backpack",
     "price": 220,
     "description": "38-litre touring pack with ice-axe loops, hipbelt pockets, and a hydration sleeve. Sized for fast & light overnighters.",
-    "imageUrl": "/products/pack-001.jpg"
+    "imageUrl": "/products/pack-001.jpg",
+    "department": "unisex"
   },
   {
     "id": "tent-001",
@@ -61,7 +68,8 @@
     "category": "tent",
     "price": 525,
     "description": "Two-person three-season tent. Cross-pole hub design pitches in under three minutes, even in wind.",
-    "imageUrl": "/products/tent-001.jpg"
+    "imageUrl": "/products/tent-001.jpg",
+    "department": "unisex"
   },
   {
     "id": "bag-001",
@@ -69,7 +77,8 @@
     "category": "sleeping bag",
     "price": 195,
     "description": "Synthetic 0°C comfort-rated bag that keeps insulating when damp. Ideal for coastal multi-days.",
-    "imageUrl": "/products/bag-001.jpg"
+    "imageUrl": "/products/bag-001.jpg",
+    "department": "unisex"
   },
   {
     "id": "light-001",
@@ -77,7 +86,8 @@
     "category": "headlamp",
     "price": 65,
     "description": "400-lumen rechargeable headlamp with red night mode and a lockout for pack-stowed travel.",
-    "imageUrl": "/products/light-001.jpg"
+    "imageUrl": "/products/light-001.jpg",
+    "department": "unisex"
   },
   {
     "id": "bottle-001",
@@ -85,7 +95,8 @@
     "category": "water bottle",
     "price": 42,
     "description": "Double-wall stainless flask. Keeps tea hot to the summit and cold water cold on the climb out.",
-    "imageUrl": "/products/bottle-001.jpg"
+    "imageUrl": "/products/bottle-001.jpg",
+    "department": "unisex"
   },
   {
     "id": "stove-001",
@@ -93,7 +104,8 @@
     "category": "stove",
     "price": 78,
     "description": "Sub-100g titanium canister stove. Boils 500ml in under three minutes at sea level.",
-    "imageUrl": "/products/stove-001.jpg"
+    "imageUrl": "/products/stove-001.jpg",
+    "department": "unisex"
   },
   {
     "id": "poles-001",
@@ -101,7 +113,8 @@
     "category": "trekking poles",
     "price": 165,
     "description": "Three-section folding carbon poles that collapse short enough for cabin baggage. Cork grips, EVA chokes.",
-    "imageUrl": "/products/poles-001.jpg"
+    "imageUrl": "/products/poles-001.jpg",
+    "department": "unisex"
   },
   {
     "id": "hat-001",
@@ -109,7 +122,8 @@
     "category": "beanie",
     "price": 38,
     "description": "Soft ribbed merino beanie that fits under a helmet. Folds flat into a hipbelt pocket.",
-    "imageUrl": "/products/hat-001.jpg"
+    "imageUrl": "/products/hat-001.jpg",
+    "department": "unisex"
   },
   {
     "id": "gloves-001",
@@ -117,7 +131,8 @@
     "category": "gloves",
     "price": 55,
     "description": "Windproof softshell liner gloves with touchscreen-friendly fingertips. Pair under a shell mitt for cold belays.",
-    "imageUrl": "/products/gloves-001.jpg"
+    "imageUrl": "/products/gloves-001.jpg",
+    "department": "unisex"
   },
   {
     "id": "w-shell-001",
@@ -125,7 +140,8 @@
     "category": "shell jacket",
     "price": 295,
     "description": "Women's three-layer waterproof shell cut for the trail. Articulated hood, underarm vents, and a drop hem for weather coming up the valley.",
-    "imageUrl": "/products/w-shell-001.jpg"
+    "imageUrl": "/products/w-shell-001.jpg",
+    "department": "womens"
   },
   {
     "id": "w-down-001",
@@ -133,7 +149,8 @@
     "category": "down jacket",
     "price": 265,
     "description": "Women's 800-fill down hoody for cold belays and frosted mornings. Stuffs into its own pocket and weighs next to nothing.",
-    "imageUrl": "/products/w-down-001.jpg"
+    "imageUrl": "/products/w-down-001.jpg",
+    "department": "womens"
   },
   {
     "id": "w-fleece-001",
@@ -141,7 +158,8 @@
     "category": "fleece",
     "price": 105,
     "description": "Women's grid-fleece midlayer that breathes on the climb and traps warmth at the col. Thumb loops and a low-bulk collar.",
-    "imageUrl": "/products/w-fleece-001.jpg"
+    "imageUrl": "/products/w-fleece-001.jpg",
+    "department": "womens"
   },
   {
     "id": "w-base-001",
@@ -149,7 +167,8 @@
     "category": "base layer",
     "price": 92,
     "description": "Women's 200gsm merino base layer that regulates on long days and resists odour over back-to-back huts. Flatlock seams.",
-    "imageUrl": "/products/w-base-001.jpg"
+    "imageUrl": "/products/w-base-001.jpg",
+    "department": "womens"
   },
   {
     "id": "w-tights-001",
@@ -157,7 +176,8 @@
     "category": "leggings",
     "price": 98,
     "description": "Women's stretch hiking tights with a high waist and two zip thigh pockets. Quick-drying, abrasion-resistant panels at the knee.",
-    "imageUrl": "/products/w-tights-001.jpg"
+    "imageUrl": "/products/w-tights-001.jpg",
+    "department": "womens"
   },
   {
     "id": "w-bra-001",
@@ -165,6 +185,7 @@
     "category": "sports bra",
     "price": 56,
     "description": "Women's medium-support sports bra in moisture-wicking knit. Soft underband and racerback for full range on the trail.",
-    "imageUrl": "/products/w-bra-001.jpg"
+    "imageUrl": "/products/w-bra-001.jpg",
+    "department": "womens"
   }
 ]

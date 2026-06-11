@@ -2,6 +2,7 @@
   import { search, orderFacets, type Product, type Synonyms } from '$lib/storefront/search';
   import { POPULAR_QUERIES } from '$lib/storefront/popular-queries';
   import type { FacetOrder } from '$lib/domain/facets';
+  import type { DepartmentFilter } from '$lib/domain/department';
 
   let {
     data
@@ -12,8 +13,16 @@
       category: string | null;
       facetOrder: FacetOrder[];
       defaultFacetOrder: FacetOrder[];
+      department?: DepartmentFilter | null;
     };
   } = $props();
+
+  // Department filter (server-side, URL-driven). "All" = no `?department=` param.
+  const departmentNav = $derived([
+    { label: 'All', href: '/', active: !data.department },
+    { label: "Women's", href: '/?department=womens', active: data.department === 'womens' },
+    { label: "Men's", href: '/?department=mens', active: data.department === 'mens' }
+  ]);
 
   let query = $state('');
   let results = $derived(search(query, data.catalog, data.synonyms));
@@ -85,6 +94,24 @@
     </div>
   </div>
 </header>
+
+<nav aria-label="Department" class="border-b border-line bg-surface/60">
+  <div class="mx-auto flex max-w-6xl items-center gap-1 px-4 py-2 text-sm sm:px-6">
+    {#each departmentNav as item (item.href)}
+      <a
+        href={item.href}
+        data-testid="department-link"
+        data-active={item.active}
+        aria-current={item.active ? 'page' : undefined}
+        class="rounded-full px-3 py-1 transition {item.active
+          ? 'bg-accent text-bg'
+          : 'text-ink/70 hover:text-ink'}"
+      >
+        {item.label}
+      </a>
+    {/each}
+  </div>
+</nav>
 
 {#if query.trim() === ''}
   <section class="relative isolate overflow-hidden border-b border-line bg-[#0f1a14]">

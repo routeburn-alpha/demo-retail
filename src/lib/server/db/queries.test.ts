@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import { inArray } from 'drizzle-orm';
+import { randomUUID } from 'node:crypto';
 import type { Sql } from 'postgres';
 import * as schema from './schema';
 import { selectCoreProducts } from './select';
@@ -62,5 +63,37 @@ suite('selectCoreProducts (integration)', () => {
     expect(ids.has('__test__hidden')).toBe(false);
     expect(ids.has('__test__inactive')).toBe(false);
     expect(ids.has('__test__elsewhere')).toBe(false);
+  });
+});
+
+suite('selectCoreProducts department filter (integration)', () => {
+  let client: Sql;
+  let db: PostgresJsDatabase<typeof schema>;
+  // Unique per-run namespace so parallel fleet runs don't collide (ARCHITECTURE §4.3).
+  const ns = `__test__dept_${randomUUID().slice(0, 8)}`;
+  const id = { w: `${ns}_w`, m: `${ns}_m`, u: `${ns}_u` };
+  const all = Object.values(id);
+
+  beforeAll(async () => {
+    client = postgres(url!, { prepare: false });
+    db = drizzle(client, { schema });
+    await db.delete(schema.products).where(inArray(schema.products.id, all));
+    await db.insert(schema.products).values([
+      sentinel(id.w, { department: 'womens' }),
+      sentinel(id.m, { department: 'mens' }),
+      sentinel(id.u, { department: 'unisex' })
+    ]);
+  });
+
+  afterAll(async () => {
+    await db.delete(schema.products).where(inArray(schema.products.id, all));
+    await client.end();
+  });
+
+  it("the Women's filter returns women's + unisex and excludes men's", async () => {
+    const ids = new Set((await selectCoreProducts(db, 'womens')).map((r) => r.id));
+    expect(ids.has(id.w)).toBe(true);
+    expect(ids.has(id.u)).toBe(true);
+    expect(ids.has(id.m)).toBe(false);
   });
 });

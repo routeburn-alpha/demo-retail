@@ -17,6 +17,9 @@ import {
  */
 export const collectionEnum = pgEnum('collection', ['core', 'elsewhere']);
 
+/** Department / gender a product belongs to. `unisex` is gear that shows under any department filter. */
+export const departmentEnum = pgEnum('department', ['womens', 'mens', 'unisex']);
+
 export const products = pgTable('products', {
   id: text('id').primaryKey(), // stable human ids, e.g. 'shell-001'
   slug: text('slug').notNull().unique(),
@@ -25,6 +28,7 @@ export const products = pgTable('products', {
   priceCents: integer('price_cents').notNull(),
   description: text('description').notNull(),
   imageUrl: text('image_url').notNull(),
+  department: departmentEnum('department').notNull().default('unisex'),
   collection: collectionEnum('collection').notNull().default('core'),
   hidden: boolean('hidden').notNull().default(false),
   active: boolean('active').notNull().default(true),

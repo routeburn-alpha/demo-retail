@@ -11,6 +11,7 @@ import postgres from 'postgres';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import { products, inventory } from '../src/lib/server/db/schema';
 import type { NewProductRow } from '../src/lib/server/db/schema';
+import type { Department } from '../src/lib/domain/department';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, '..');
@@ -22,6 +23,7 @@ type CatalogEntry = {
   price: number;
   description: string;
   imageUrl: string;
+  department: Department;
 };
 
 function slugify(s: string): string {
@@ -44,6 +46,7 @@ const coreRows: NewProductRow[] = catalog.map((p) => ({
   priceCents: Math.round(p.price * 100),
   description: p.description,
   imageUrl: p.imageUrl,
+  department: p.department,
   collection: 'core',
   hidden: false,
   active: true
@@ -79,6 +82,7 @@ async function main() {
           priceCents: row.priceCents,
           description: row.description,
           imageUrl: row.imageUrl,
+          department: row.department,
           collection: row.collection,
           hidden: row.hidden,
           active: row.active

@@ -10,6 +10,7 @@ const row: ProductRow = {
   priceCents: 32000,
   description: 'Three-layer waterproof shell.',
   imageUrl: '/products/shell-001.jpg',
+  department: 'mens',
   collection: 'core',
   hidden: false,
   active: true,
