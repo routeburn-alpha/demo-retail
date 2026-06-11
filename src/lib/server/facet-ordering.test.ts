@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { randomUUID } from 'node:crypto';
-import { updateCategoryFacetOrder } from '$lib/server/db/queries';
-import { loadFacetOrdering } from './facet-ordering';
+import { updateCategoryFacetOrder, getFacetOrderForCategory } from '$lib/server/db/queries';
+import { loadFacetOrdering, saveFacetOrder } from './facet-ordering';
 
 // Integration test against the real (dev) database. Skips when DATABASE_URL is
 // absent (ARCHITECTURE §4.3). Seeds + cleans its own per-run category namespace.
@@ -41,5 +41,34 @@ suite('loadFacetOrdering (integration)', () => {
     expect(result.category).toBeNull();
     expect(result.facetOrder).toEqual([]);
     expect(Array.isArray(result.defaultFacetOrder)).toBe(true);
+  });
+});
+
+suite('saveFacetOrder (integration)', () => {
+  const saveSlug = `__test__${randomUUID().slice(0, 8)}-save`;
+
+  afterAll(async () => {
+    await updateCategoryFacetOrder({ categorySlug: saveSlug, facetOrders: [] });
+  });
+
+  it('persists the keys as a category ordering in the given order', async () => {
+    await saveFacetOrder(saveSlug, ['capacity', 'season', 'price']);
+    expect(await getFacetOrderForCategory(saveSlug)).toEqual([
+      { facetKey: 'capacity', displayOrder: 1 },
+      { facetKey: 'season', displayOrder: 2 },
+      { facetKey: 'price', displayOrder: 3 }
+    ]);
+  });
+
+  it('rejects an empty key list', async () => {
+    await expect(saveFacetOrder(saveSlug, [])).rejects.toThrow();
+  });
+
+  it('rejects duplicate keys', async () => {
+    await expect(saveFacetOrder(saveSlug, ['season', 'season'])).rejects.toThrow();
+  });
+
+  it('rejects a blank category slug', async () => {
+    await expect(saveFacetOrder('  ', ['season'])).rejects.toThrow();
   });
 });
