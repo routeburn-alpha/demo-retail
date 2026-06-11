@@ -9,12 +9,16 @@ import {
 } from './select';
 import type { Product } from '$lib/storefront/search';
 import type { FacetOrder, CategoryFacetConfig } from '$lib/domain/facets';
+import type { DepartmentFilter } from '$lib/domain/department';
 
 export { toProduct };
 
-/** The visible Tarn & Trail catalogue: active, non-hidden, core collection. */
-export async function listCoreProducts(): Promise<Product[]> {
-  const rows = await selectCoreProducts(db);
+/**
+ * The visible Routeburn catalogue: active, non-hidden, core collection. With `department`, returns
+ * that department's products plus unisex gear; without it, the whole catalogue.
+ */
+export async function listCoreProducts(department?: DepartmentFilter): Promise<Product[]> {
+  const rows = await selectCoreProducts(db, department);
   return rows.map(toProduct);
 }
 
