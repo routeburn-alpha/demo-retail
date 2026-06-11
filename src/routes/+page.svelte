@@ -49,7 +49,7 @@
 
 <header class="sticky top-0 z-10 border-b border-line bg-surface/95 backdrop-blur">
   <div class="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:gap-6 sm:px-6 sm:py-5">
-    <a href="/" class="font-display whitespace-nowrap text-sm tracking-[0.15em] text-ink sm:text-xl sm:tracking-[0.3em]">TARN &amp; TRAIL</a>
+    <a href="/" class="font-display whitespace-nowrap text-sm tracking-[0.15em] text-ink sm:text-xl sm:tracking-[0.3em]">ROUTEBURN</a>
     <div class="relative w-full max-w-sm">
       <svg
         class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/60"
@@ -87,10 +87,27 @@
 </header>
 
 {#if query.trim() === ''}
-  <section
-    class="relative overflow-hidden border-b border-line"
-    style="background: linear-gradient(135deg, #2f4a3a 0%, #1a2820 60%, #0f1a14 100%);"
-  >
+  <section class="relative isolate overflow-hidden border-b border-line bg-[#0f1a14]">
+    <img
+      src="/routeburn-hero.jpg"
+      alt=""
+      aria-hidden="true"
+      data-testid="hero-backdrop"
+      class="absolute inset-0 -z-10 h-full w-full object-cover object-center"
+    />
+    <!-- Brand-green wash multiplied over the photo: keeps the banner green while the trail shows through.
+         Slight opacity lets more of the photo read through the multiply. -->
+    <div
+      aria-hidden="true"
+      class="absolute inset-0 -z-10 opacity-[0.82] mix-blend-multiply"
+      style="background: linear-gradient(135deg, #2f4a3a 0%, #1a2820 60%, #0f1a14 100%);"
+    ></div>
+    <!-- Left-side darken so the heading/subhead stay legible over the photo -->
+    <div
+      aria-hidden="true"
+      class="absolute inset-0 -z-10"
+      style="background: linear-gradient(90deg, rgba(15,26,20,0.7) 0%, rgba(15,26,20,0.25) 55%, rgba(15,26,20,0) 100%);"
+    ></div>
     <div class="mx-auto max-w-6xl px-6 py-16 text-bg sm:py-20">
       <p class="mb-3 text-xs uppercase tracking-[0.3em] text-bg/80">Autumn 2026</p>
       <h1 class="font-display text-3xl leading-tight sm:text-4xl md:text-5xl">Built for the long way home.</h1>
@@ -202,7 +219,7 @@
 
 <footer class="mt-16 border-t border-line bg-surface">
   <div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-6 py-8 text-xs text-ink/65">
-    <span class="font-display tracking-[0.3em]">TARN &amp; TRAIL</span>
+    <span class="font-display tracking-[0.3em]">ROUTEBURN</span>
     <span>Outdoor gear for the country between the trailhead and the col.</span>
   </div>
 </footer>
