@@ -58,6 +58,11 @@ describe('Routeburn storefront', () => {
     await expect.element(screen.getByTestId('hero-backdrop')).toBeInTheDocument();
   });
 
+  it('the hero banner displays a tagline', async () => {
+    const screen = render(StorefrontPage, { data });
+    await expect.element(screen.getByText('Peak performance, long adventures.')).toBeVisible();
+  });
+
   it('typing "trainers" returns trail-runner products via synonym substitution', async () => {
     const screen = render(StorefrontPage, { data });
     await screen.getByLabelText('Search').fill('trainers');

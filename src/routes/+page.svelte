@@ -141,6 +141,7 @@
       <p class="mt-4 max-w-md text-sm text-bg/90">
         Layers, packs, and quiet tools for the country between the trailhead and the col.
       </p>
+      <p class="mt-2 text-xs text-bg/75">Peak performance, long adventures.</p>
     </div>
   </section>
 {/if}
