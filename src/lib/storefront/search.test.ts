@@ -1,6 +1,25 @@
+import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
-import { orderFacets } from './search';
+import { orderFacets, search, type Product, type Synonyms } from './search';
 import type { FacetOrder } from '$lib/domain/facets';
+
+// Pure logic over the REAL static catalogue/synonyms (read from disk, same source the seed uses).
+// No DB, no fetch, no mocks — allowed per ARCHITECTURE §4.1.
+const realCatalog: Product[] = JSON.parse(readFileSync('static/catalog.json', 'utf-8'));
+const realSynonyms: Synonyms = JSON.parse(readFileSync('static/synonyms.json', 'utf-8'));
+const isWomens = (p: Product) => /women'?s/i.test(p.name);
+
+describe("women's clothing line", () => {
+  it('the catalogue carries at least 6 women\'s clothing products', () => {
+    expect(realCatalog.filter(isWomens).length).toBeGreaterThanOrEqual(6);
+  });
+
+  it('searching "womens" surfaces the women\'s line via synonyms', () => {
+    const results = search('womens', realCatalog, realSynonyms);
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.every(isWomens)).toBe(true);
+  });
+});
 
 // Pure unit test — orderFacets has no I/O (it receives the ordering config as input),
 // so a unit test is allowed per ARCHITECTURE §4.1. No DB, no mocks.
