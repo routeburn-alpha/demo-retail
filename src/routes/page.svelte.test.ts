@@ -45,7 +45,7 @@ const synonyms: Synonyms = {
   rucksack: ['backpack']
 };
 
-const data = { catalog, synonyms };
+const data = { catalog, synonyms, category: null, facetOrder: [], defaultFacetOrder: [] };
 
 describe('Tarn & Trail storefront', () => {
   it('typing "trainers" returns trail-runner products via synonym substitution', async () => {

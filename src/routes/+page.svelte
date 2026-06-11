@@ -1,13 +1,46 @@
 <script lang="ts">
-  import { search, type Product, type Synonyms } from '$lib/storefront/search';
+  import { search, orderFacets, type Product, type Synonyms } from '$lib/storefront/search';
   import { POPULAR_QUERIES } from '$lib/storefront/popular-queries';
+  import type { FacetOrder } from '$lib/domain/facets';
 
-  let { data }: { data: { catalog: Product[]; synonyms: Synonyms } } = $props();
+  let {
+    data
+  }: {
+    data: {
+      catalog: Product[];
+      synonyms: Synonyms;
+      category: string | null;
+      facetOrder: FacetOrder[];
+      defaultFacetOrder: FacetOrder[];
+    };
+  } = $props();
 
   let query = $state('');
   let results = $derived(search(query, data.catalog, data.synonyms));
 
+  // Facets to show = the union of the category + default configs, ordered by the
+  // category's ordering (default as fallback) via the shared pure helper.
+  const availableFacets = $derived([
+    ...new Set([...data.facetOrder, ...data.defaultFacetOrder].map((f) => f.facetKey))
+  ]);
+  const orderedFacets = $derived(
+    orderFacets(availableFacets, data.facetOrder, data.defaultFacetOrder)
+  );
+
+  let activeFacets = $state(new Set<string>());
+  function toggleFacet(key: string) {
+    const next = new Set(activeFacets);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    activeFacets = next;
+  }
+
   const formatPrice = (n: number) => `$${n.toFixed(0)}`;
+  const facetLabel = (key: string) =>
+    key
+      .split('-')
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
 
   function setQuery(next: string) {
     query = next;
@@ -69,6 +102,27 @@
 {/if}
 
 <main class="mx-auto max-w-6xl px-6 py-10">
+  {#if orderedFacets.length > 0}
+    <div data-testid="facet-bar" class="mb-8">
+      <p class="mb-3 text-[10px] uppercase tracking-[0.2em] text-ink/70">Filters</p>
+      <div class="flex flex-wrap gap-2">
+        {#each orderedFacets as key (key)}
+          <button
+            type="button"
+            data-testid="facet-chip"
+            data-facet={key}
+            aria-pressed={activeFacets.has(key)}
+            onclick={() => toggleFacet(key)}
+            class="rounded-full border px-4 py-1.5 text-sm transition {activeFacets.has(key)
+              ? 'border-accent bg-accent text-bg'
+              : 'border-line bg-surface text-ink hover:border-accent hover:text-accent'}"
+          >
+            {facetLabel(key)}
+          </button>
+        {/each}
+      </div>
+    </div>
+  {/if}
   {#if query.trim() === ''}
     <div class="mb-6 flex items-baseline justify-between">
       <h2 class="font-display text-lg tracking-wide text-ink">The Catalogue</h2>
