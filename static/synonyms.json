@@ -16,5 +16,10 @@
   "flask": ["water bottle"],
   "boots": ["hiking boot"],
   "tramping boots": ["hiking boot"],
-  "mittens": ["gloves"]
+  "mittens": ["gloves"],
+  "womens": ["women"],
+  "ladies": ["women"],
+  "tights": ["leggings"],
+  "yoga pants": ["leggings"],
+  "bra": ["sports bra"]
 }

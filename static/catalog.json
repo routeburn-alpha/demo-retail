@@ -118,5 +118,53 @@
     "price": 55,
     "description": "Windproof softshell liner gloves with touchscreen-friendly fingertips. Pair under a shell mitt for cold belays.",
     "imageUrl": "/products/gloves-001.jpg"
+  },
+  {
+    "id": "w-shell-001",
+    "name": "Aurora Women's 3L Shell",
+    "category": "shell jacket",
+    "price": 295,
+    "description": "Women's three-layer waterproof shell cut for the trail. Articulated hood, underarm vents, and a drop hem for weather coming up the valley.",
+    "imageUrl": "/products/w-shell-001.jpg"
+  },
+  {
+    "id": "w-down-001",
+    "name": "Featherline Women's Down Hoody",
+    "category": "down jacket",
+    "price": 265,
+    "description": "Women's 800-fill down hoody for cold belays and frosted mornings. Stuffs into its own pocket and weighs next to nothing.",
+    "imageUrl": "/products/w-down-001.jpg"
+  },
+  {
+    "id": "w-fleece-001",
+    "name": "Tussock Women's Grid Fleece",
+    "category": "fleece",
+    "price": 105,
+    "description": "Women's grid-fleece midlayer that breathes on the climb and traps warmth at the col. Thumb loops and a low-bulk collar.",
+    "imageUrl": "/products/w-fleece-001.jpg"
+  },
+  {
+    "id": "w-base-001",
+    "name": "Merino 200 Women's Long-Sleeve",
+    "category": "base layer",
+    "price": 92,
+    "description": "Women's 200gsm merino base layer that regulates on long days and resists odour over back-to-back huts. Flatlock seams.",
+    "imageUrl": "/products/w-base-001.jpg"
+  },
+  {
+    "id": "w-tights-001",
+    "name": "Ridgeline Women's Hiking Tights",
+    "category": "leggings",
+    "price": 98,
+    "description": "Women's stretch hiking tights with a high waist and two zip thigh pockets. Quick-drying, abrasion-resistant panels at the knee.",
+    "imageUrl": "/products/w-tights-001.jpg"
+  },
+  {
+    "id": "w-bra-001",
+    "name": "Summit Women's Support Bra",
+    "category": "sports bra",
+    "price": 56,
+    "description": "Women's medium-support sports bra in moisture-wicking knit. Soft underband and racerback for full range on the trail.",
+    "imageUrl": "/products/w-bra-001.jpg"
   }
 ]
