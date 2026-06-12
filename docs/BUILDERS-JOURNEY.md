@@ -95,7 +95,7 @@ not in a wiki someone might think to open.
 claimed (`work_on_next_task` — Stage 1), its context — its own, plus whatever it inherited from its
 idea — is injected directly into the builder's working context. This very section is the proof: the
 task that wrote it was picked up with five repo documents already attached and in front of the
-builder — `README.md`, `ARCHITECTURE.md`, `FRAMEWORK.md`, `SETUP.md`, `CLAUDE.md`. A builder can
+builder — `README.md`, `ARCHITECTURE.md`, `FRAMEWORK.md`, `INITIAL-SETUP.md`, `CLAUDE.md`. A builder can
 pull more in on demand (`search_context`) or curate the set (`attach_context` / `remove_context`).
 
 And "the builder" is deliberately literal here: a human reads the injected context in their editor;

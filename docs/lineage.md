@@ -40,6 +40,6 @@ gets built that can't answer "which idea is this serving, and did it work?"
 Tasks and ideas live in **studio-ai**, the studio's task system, queried over its **MCP server**
 (`mcp__studio-ai__*` tools — e.g. `get_tasks`, `work_on_next_task`, `submit_for_review`). Ideas,
 tasks, executions, PRs, and build-report comments are first-class records there — the **platform**
-product holds the milestone ideas; see [`SETUP.md`](../SETUP.md) for stack and onboarding. This is
+product holds the milestone ideas; see [`CLAUDE.md`](../CLAUDE.md) for stack and the dev loop. This is
 the production shape itself, not a stand-in: the *shape* of the lineage above is exactly what the
 MCP records model.
