@@ -105,4 +105,9 @@ describe('Routeburn storefront', () => {
     await screen.getByLabelText('Search').fill('  trainers  ');
     await expect.element(screen.getByText(/for "trainers"/i)).toBeVisible();
   });
+
+  it('the hero section includes an expanded tagline', async () => {
+    const screen = render(StorefrontPage, { data });
+    await expect.element(screen.getByText(/Trails tested, customer approved./i)).toBeVisible();
+  });
 });
