@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
-import { orderFacets, search, type Product, type Synonyms } from './search';
+import { editDistance, orderFacets, search, type Product, type Synonyms } from './search';
 import type { FacetOrder } from '$lib/domain/facets';
 
 // Pure logic over the REAL static catalogue/synonyms (read from disk, same source the seed uses).
@@ -73,5 +73,46 @@ describe('orderFacets', () => {
 
   it('returns an empty array when nothing is available', () => {
     expect(orderFacets([], tentOrder, defaultOrder)).toEqual([]);
+  });
+});
+
+// Pure unit tests — editDistance and fuzzy search have no I/O.
+describe('fuzzy search (typo tolerance)', () => {
+  it('editDistance returns 0 for identical strings', () => {
+    expect(editDistance('jacket', 'jacket')).toBe(0);
+  });
+
+  it('editDistance("jakcet", "jacket") is ≤ 2 (transposition typo)', () => {
+    expect(editDistance('jakcet', 'jacket')).toBeLessThanOrEqual(2);
+  });
+
+  it('editDistance("wterproof", "waterproof") is ≤ 2 (missing letter typo)', () => {
+    expect(editDistance('wterproof', 'waterproof')).toBeLessThanOrEqual(2);
+  });
+
+  it('editDistance rejects large differences (> 2) — "xyz" vs "waterproof"', () => {
+    expect(editDistance('xyz', 'waterproof')).toBeGreaterThan(2);
+  });
+
+  it('fuzzy search: "jakcet" matches products with "jacket" in name/category', () => {
+    const results = search('jakcet', realCatalog, realSynonyms);
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.some((p) => /jacket/i.test(p.name + ' ' + p.category))).toBe(true);
+  });
+
+  it('fuzzy search: "wterproof jakcet" matches a waterproof jacket product', () => {
+    const results = search('wterproof jakcet', realCatalog, realSynonyms);
+    expect(results.length).toBeGreaterThan(0);
+    expect(
+      results.some((p) =>
+        /waterproof/i.test(p.name + ' ' + p.description) &&
+        /jacket/i.test(p.name + ' ' + p.category)
+      )
+    ).toBe(true);
+  });
+
+  it('fuzzy search does not match short tokens with distant targets — "xyz" returns no results', () => {
+    const results = search('xyz', realCatalog, realSynonyms);
+    expect(results.length).toBe(0);
   });
 });

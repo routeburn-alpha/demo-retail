@@ -105,4 +105,10 @@ describe('Routeburn storefront', () => {
     await screen.getByLabelText('Search').fill('  trainers  ');
     await expect.element(screen.getByText(/for "trainers"/i)).toBeVisible();
   });
+
+  it('typo tolerance: "wterproof jakcet" returns the waterproof shell jacket', async () => {
+    const screen = render(StorefrontPage, { data });
+    await screen.getByLabelText('Search').fill('wterproof jakcet');
+    await expect.element(screen.getByText('Storm Cirrus Shell')).toBeVisible();
+  });
 });
