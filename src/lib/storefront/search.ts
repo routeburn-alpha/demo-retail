@@ -40,6 +40,25 @@ export function orderFacets(
     .map((entry) => entry.facetKey);
 }
 
+/**
+ * Standard Levenshtein edit distance between two strings. Pure, no I/O.
+ */
+export function editDistance(a: string, b: string): number {
+  const m = a.length;
+  const n = b.length;
+  const dp: number[] = Array.from({ length: n + 1 }, (_, i) => i);
+  for (let i = 1; i <= m; i++) {
+    let prev = dp[0];
+    dp[0] = i;
+    for (let j = 1; j <= n; j++) {
+      const temp = dp[j];
+      dp[j] = a[i - 1] === b[j - 1] ? prev : 1 + Math.min(prev, dp[j], dp[j - 1]);
+      prev = temp;
+    }
+  }
+  return dp[n];
+}
+
 export function applySynonyms(query: string, synonyms: Synonyms): string[] {
   const lower = query.toLowerCase().trim();
   if (!lower) return [];
@@ -55,6 +74,19 @@ export function applySynonyms(query: string, synonyms: Synonyms): string[] {
   }
   phrases.add(rewritten);
   return [...phrases];
+}
+
+/** Max edit distance per token for fuzzy fallback matching. */
+const FUZZY_MAX_DIST = 2;
+
+/**
+ * Returns true if `token` fuzzy-matches any whitespace-separated word in `text`
+ * within `maxDist` edits. Only tries fuzzy when the token is long enough to avoid
+ * false positives on short words (minimum 4 characters).
+ */
+function fuzzyTokenMatchesText(token: string, text: string, maxDist: number): boolean {
+  if (token.length < 4) return false;
+  return text.split(/\s+/).some((word) => editDistance(token, word) <= maxDist);
 }
 
 export function search(query: string, catalog: Product[], synonyms: Synonyms): Product[] {
@@ -73,9 +105,17 @@ export function search(query: string, catalog: Product[], synonyms: Synonyms): P
     });
   };
 
+  const fuzzyMatches = (p: Product): boolean => {
+    const haystack = `${p.name} ${p.category}`.toLowerCase();
+    const tokens = trimmed.toLowerCase().split(/\s+/).filter(Boolean);
+    return tokens.every((token) => fuzzyTokenMatchesText(token, haystack, FUZZY_MAX_DIST));
+  };
+
   const strict = catalog.filter((p) => productMatches(p, false));
   if (strict.length > 0) return strict;
-  return catalog.filter((p) => productMatches(p, true));
+  const withDesc = catalog.filter((p) => productMatches(p, true));
+  if (withDesc.length > 0) return withDesc;
+  return catalog.filter(fuzzyMatches);
 }
 
 function escapeRegExp(s: string): string {

@@ -105,4 +105,10 @@ describe('Routeburn storefront', () => {
     await screen.getByLabelText('Search').fill('  trainers  ');
     await expect.element(screen.getByText(/for "trainers"/i)).toBeVisible();
   });
+
+  it('fuzzy: misspelled "glvoes" still returns the gloves product via edit-distance', async () => {
+    const screen = render(StorefrontPage, { data });
+    await screen.getByLabelText('Search').fill('glvoes');
+    await expect.element(screen.getByText('Windproof Liner Gloves')).toBeVisible();
+  });
 });

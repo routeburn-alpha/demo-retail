@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
-import { orderFacets, search, type Product, type Synonyms } from './search';
+import { editDistance, orderFacets, search, type Product, type Synonyms } from './search';
 import type { FacetOrder } from '$lib/domain/facets';
 
 // Pure logic over the REAL static catalogue/synonyms (read from disk, same source the seed uses).
@@ -8,6 +8,42 @@ import type { FacetOrder } from '$lib/domain/facets';
 const realCatalog: Product[] = JSON.parse(readFileSync('static/catalog.json', 'utf-8'));
 const realSynonyms: Synonyms = JSON.parse(readFileSync('static/synonyms.json', 'utf-8'));
 const isWomens = (p: Product) => /women'?s/i.test(p.name);
+
+// Pure unit tests for editDistance — no I/O, allowed per ARCHITECTURE §4.1 and no-mocks standard.
+describe('editDistance', () => {
+  it('returns 1 for a single insertion ("wter" → "water")', () => {
+    expect(editDistance('wter', 'water')).toBe(1);
+  });
+
+  it('returns 1 for a single deletion ("bottl" → "bottle")', () => {
+    expect(editDistance('bottl', 'bottle')).toBe(1);
+  });
+
+  it('returns 2 for a transposition ("teh" → "the") — standard Levenshtein', () => {
+    expect(editDistance('teh', 'the')).toBe(2);
+  });
+
+  it('returns 0 for identical strings', () => {
+    expect(editDistance('water', 'water')).toBe(0);
+  });
+
+  it('returns a large distance for completely different strings', () => {
+    expect(editDistance('xyz', 'water')).toBeGreaterThan(2);
+  });
+});
+
+// Pure unit test — fuzzy search over real catalog (read from disk, no DB, no fetch).
+describe('fuzzy search', () => {
+  it('a misspelled query ("wter") returns the water bottle product', () => {
+    const results = search('wter', realCatalog, realSynonyms);
+    expect(results.some((p) => p.id === 'bottle-001')).toBe(true);
+  });
+
+  it('a badly misspelled query ("xzqwrt") returns no results', () => {
+    const results = search('xzqwrt', realCatalog, realSynonyms);
+    expect(results.length).toBe(0);
+  });
+});
 
 describe("women's clothing line", () => {
   it('the catalogue carries at least 6 women\'s clothing products', () => {
