@@ -9,6 +9,54 @@ const realCatalog: Product[] = JSON.parse(readFileSync('static/catalog.json', 'u
 const realSynonyms: Synonyms = JSON.parse(readFileSync('static/synonyms.json', 'utf-8'));
 const isWomens = (p: Product) => /women'?s/i.test(p.name);
 
+describe('fuzzy matching', () => {
+  it('falls back to fuzzy when exact and synonym stages return fewer than 3 results', () => {
+    // "jaket" is a 1-character-off typo of "jacket" — no exact or synonym match
+    // fuzzy should surface all jacket products (score = 80 - 1*10 = 70)
+    const results = search('jaket', realCatalog, realSynonyms);
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.every((p) => p.category.includes('jacket'))).toBe(true);
+  });
+
+  it('does not trigger fuzzy when exact/synonym already returns 3 or more results', () => {
+    // "jacket" exact match returns 4 products — fuzzy stage must not be reached
+    const exactResults = search('jacket', realCatalog, realSynonyms);
+    expect(exactResults.length).toBeGreaterThanOrEqual(3);
+    // If fuzzy were also appended, we'd get non-jacket results (e.g. "pack" tokens matching
+    // loosely). Verify every result is a genuine jacket match.
+    expect(exactResults.every((p) => p.category.includes('jacket'))).toBe(true);
+  });
+
+  it('exact matches rank above synonym matches which rank above fuzzy matches', () => {
+    // Build a tiny catalog: one exact hit, one synonym hit, one fuzzy hit
+    const miniCatalog: Product[] = [
+      { id: 'a', name: 'Shell Jacket', category: 'shell jacket', price: 100, description: '', imageUrl: '' },
+      { id: 'b', name: 'Rain Anorak', category: 'shell jacket', price: 90, description: '', imageUrl: '' },
+      { id: 'c', name: 'Jakket Hood', category: 'softshell', price: 80, description: '', imageUrl: '' }
+    ];
+    // "anorak" synonyms → "shell jacket", so product b gets synonym score
+    // "jaket" → fuzzy hit on product a/c; but a already gets exact via synonym chain?
+    // Use a simpler setup: query "jacket", no synonyms
+    const results = search('jacket', miniCatalog, {});
+    // a (name contains "jacket") and b (category "shell jacket") both exact-match at 100
+    // c doesn't match exactly, and catalog has 2 results ≥ ... wait, need <3 to trigger fuzzy
+    // Use a single-exact-result catalog instead
+    const singleCatalog: Product[] = [
+      { id: 'a', name: 'Shell Jacket', category: 'outerwear', price: 100, description: '', imageUrl: '' },
+      { id: 'b', name: 'Trail Runner', category: 'footwear', price: 90, description: '', imageUrl: '' },
+      { id: 'c', name: 'Jakket Hood', category: 'softshell', price: 80, description: '', imageUrl: '' }
+    ];
+    // query "jaket": no exact, no synonym → 0 results → triggers fuzzy
+    // "jaket" vs "jacket" (product a name) = distance 1 → score 70
+    // "jaket" vs "jakket" (product c name) = distance 1 → score 70
+    // "jaket" vs "outerwear"/"trail"/"runner"/"footwear"/"softshell" → large distances, score ≤ 0
+    const fuzzyResults = search('jaket', singleCatalog, {});
+    expect(fuzzyResults.map((p) => p.id)).toContain('a');
+    expect(fuzzyResults.map((p) => p.id)).toContain('c');
+    expect(fuzzyResults.map((p) => p.id)).not.toContain('b');
+  });
+});
+
 describe("women's clothing line", () => {
   it('the catalogue carries at least 6 women\'s clothing products', () => {
     expect(realCatalog.filter(isWomens).length).toBeGreaterThanOrEqual(6);

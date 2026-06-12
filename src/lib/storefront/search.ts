@@ -61,21 +61,94 @@ export function search(query: string, catalog: Product[], synonyms: Synonyms): P
   const trimmed = query.trim();
   if (!trimmed) return catalog;
 
+  const lower = trimmed.toLowerCase();
   const phrases = applySynonyms(trimmed, synonyms);
+  // Synonym phrases are all phrases except the original query.
+  const synonymPhrases = phrases.filter((p) => p !== lower);
 
-  const productMatches = (p: Product, includeDescription: boolean): boolean => {
-    const haystack = includeDescription
-      ? `${p.name} ${p.category} ${p.description}`.toLowerCase()
-      : `${p.name} ${p.category}`.toLowerCase();
+  const tokensMatch = (tokens: string[], haystack: string): boolean =>
+    tokens.every((token) => haystack.includes(token));
+
+  const scored = new Map<string, { product: Product; score: number }>();
+
+  const exactTokens = lower.split(/\s+/).filter(Boolean);
+
+  for (const product of catalog) {
+    const haystack = `${product.name} ${product.category}`.toLowerCase();
+
+    if (tokensMatch(exactTokens, haystack)) {
+      scored.set(product.id, { product, score: 100 });
+      continue;
+    }
+
+    for (const phrase of synonymPhrases) {
+      const tokens = phrase.split(/\s+/).filter(Boolean);
+      if (tokensMatch(tokens, haystack)) {
+        scored.set(product.id, { product, score: 90 });
+        break;
+      }
+    }
+  }
+
+  // Fuzzy stage: only when fewer than 3 results from exact + synonym stages.
+  if (scored.size < 3) {
+    for (const product of catalog) {
+      if (scored.has(product.id)) continue;
+
+      const nameTokens = `${product.name} ${product.category}`
+        .toLowerCase()
+        .split(/\s+/)
+        .filter(Boolean);
+
+      let bestScore = 0;
+      for (const qToken of exactTokens) {
+        const maxDistance = Math.floor(qToken.length / 3);
+        for (const nToken of nameTokens) {
+          const dist = levenshtein(qToken, nToken);
+          if (dist <= maxDistance) {
+            const fuzzyScore = 80 - dist * 10;
+            if (fuzzyScore > bestScore) bestScore = fuzzyScore;
+          }
+        }
+      }
+
+      if (bestScore > 0) {
+        scored.set(product.id, { product, score: bestScore });
+      }
+    }
+  }
+
+  if (scored.size > 0) {
+    return [...scored.values()]
+      .sort((a, b) => b.score - a.score)
+      .map((entry) => entry.product);
+  }
+
+  // Final fallback: description-based match (backward compatibility).
+  return catalog.filter((p) => {
+    const haystack = `${p.name} ${p.category} ${p.description}`.toLowerCase();
     return phrases.some((phrase) => {
       const tokens = phrase.split(/\s+/).filter(Boolean);
       return tokens.every((token) => haystack.includes(token));
     });
-  };
+  });
+}
 
-  const strict = catalog.filter((p) => productMatches(p, false));
-  if (strict.length > 0) return strict;
-  return catalog.filter((p) => productMatches(p, true));
+function levenshtein(a: string, b: string): number {
+  const m = a.length;
+  const n = b.length;
+  const dp: number[][] = Array.from({ length: m + 1 }, (_, i) =>
+    Array.from({ length: n + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0))
+  );
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] =
+        a[i - 1] === b[j - 1]
+          ? dp[i - 1][j - 1]
+          : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+    }
+  }
+  return dp[m][n];
 }
 
 function escapeRegExp(s: string): string {
