@@ -36,6 +36,14 @@ const catalog: Product[] = [
     price: 55,
     description: 'pair under a shell mitt for cold belays',
     imageUrl: 'https://example.com/gloves-001.jpg'
+  },
+  {
+    id: 'bottle-001',
+    name: 'Insulated Water Bottle',
+    category: 'water bottle',
+    price: 35,
+    description: 'keeps drinks cold on long days',
+    imageUrl: 'https://example.com/bottle-001.jpg'
   }
 ];
 
@@ -104,5 +112,11 @@ describe('Routeburn storefront', () => {
     const screen = render(StorefrontPage, { data });
     await screen.getByLabelText('Search').fill('  trainers  ');
     await expect.element(screen.getByText(/for "trainers"/i)).toBeVisible();
+  });
+
+  it('misspelled "wter" surfaces the water bottle via fuzzy matching', async () => {
+    const screen = render(StorefrontPage, { data });
+    await screen.getByLabelText('Search').fill('wter');
+    await expect.element(screen.getByText('Insulated Water Bottle')).toBeVisible();
   });
 });

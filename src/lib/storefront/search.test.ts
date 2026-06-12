@@ -9,6 +9,27 @@ const realCatalog: Product[] = JSON.parse(readFileSync('static/catalog.json', 'u
 const realSynonyms: Synonyms = JSON.parse(readFileSync('static/synonyms.json', 'utf-8'));
 const isWomens = (p: Product) => /women'?s/i.test(p.name);
 
+describe('fuzzy distance threshold', () => {
+  it('matches a query token at distance ≤ floor(len/3)', () => {
+    // "wter" (len=4, threshold=1) → "water" has distance 1 → within threshold
+    const mini: Product[] = [
+      { id: 'w1', name: 'Water Bottle', category: 'hydration', price: 30, description: '', imageUrl: '' }
+    ];
+    const results = search('wter', mini, {});
+    expect(results.length).toBe(1);
+    expect(results[0].id).toBe('w1');
+  });
+
+  it('rejects a query token beyond threshold (distance > floor(len/3))', () => {
+    // "wtr" (len=3, threshold=1) → "water" has distance 2 → beyond threshold, no fuzzy match
+    const mini: Product[] = [
+      { id: 'w1', name: 'Water Bottle', category: 'hydration', price: 30, description: '', imageUrl: '' }
+    ];
+    const results = search('wtr', mini, {});
+    expect(results.length).toBe(0);
+  });
+});
+
 describe('fuzzy matching', () => {
   it('falls back to fuzzy when exact and synonym stages return fewer than 3 results', () => {
     // "jaket" is a 1-character-off typo of "jacket" — no exact or synonym match
