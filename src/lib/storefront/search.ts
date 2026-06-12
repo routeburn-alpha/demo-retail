@@ -57,6 +57,35 @@ export function applySynonyms(query: string, synonyms: Synonyms): string[] {
   return [...phrases];
 }
 
+export function levenshtein(a: string, b: string): number {
+  const m = a.length;
+  const n = b.length;
+  const dp: number[] = Array.from({ length: n + 1 }, (_, i) => i);
+  for (let i = 1; i <= m; i++) {
+    let prev = dp[0];
+    dp[0] = i;
+    for (let j = 1; j <= n; j++) {
+      const temp = dp[j];
+      dp[j] = a[i - 1] === b[j - 1] ? prev : 1 + Math.min(prev, dp[j], dp[j - 1]);
+      prev = temp;
+    }
+  }
+  return dp[n];
+}
+
+const FUZZ_MAX_DIST = 2;
+const FUZZ_MIN_TOKEN_LEN = 4;
+
+function fuzzyProductMatch(queryTokens: string[], p: Product): boolean {
+  const words = `${p.name} ${p.category} ${p.description}`
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean);
+  return queryTokens.every((token) =>
+    words.some((word) => levenshtein(token, word) <= FUZZ_MAX_DIST)
+  );
+}
+
 export function search(query: string, catalog: Product[], synonyms: Synonyms): Product[] {
   const trimmed = query.trim();
   if (!trimmed) return catalog;
@@ -75,7 +104,16 @@ export function search(query: string, catalog: Product[], synonyms: Synonyms): P
 
   const strict = catalog.filter((p) => productMatches(p, false));
   if (strict.length > 0) return strict;
-  return catalog.filter((p) => productMatches(p, true));
+  const full = catalog.filter((p) => productMatches(p, true));
+  if (full.length > 0) return full;
+
+  // Fuzzy fallback: token-level edit-distance matching behind the synonym pipeline.
+  const fuzzyTokens = trimmed
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((t) => t.length >= FUZZ_MIN_TOKEN_LEN);
+  if (fuzzyTokens.length === 0) return [];
+  return catalog.filter((p) => fuzzyProductMatch(fuzzyTokens, p));
 }
 
 function escapeRegExp(s: string): string {

@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
-import { orderFacets, search, type Product, type Synonyms } from './search';
+import { levenshtein, orderFacets, search, type Product, type Synonyms } from './search';
 import type { FacetOrder } from '$lib/domain/facets';
 
 // Pure logic over the REAL static catalogue/synonyms (read from disk, same source the seed uses).
@@ -8,6 +8,36 @@ import type { FacetOrder } from '$lib/domain/facets';
 const realCatalog: Product[] = JSON.parse(readFileSync('static/catalog.json', 'utf-8'));
 const realSynonyms: Synonyms = JSON.parse(readFileSync('static/synonyms.json', 'utf-8'));
 const isWomens = (p: Product) => /women'?s/i.test(p.name);
+
+describe('levenshtein edit distance', () => {
+  it('returns 0 for identical strings', () => {
+    expect(levenshtein('jacket', 'jacket')).toBe(0);
+  });
+
+  it('"wterproof" is distance 1 from "waterproof" (missing a)', () => {
+    expect(levenshtein('wterproof', 'waterproof')).toBe(1);
+  });
+
+  it('"jakcet" is distance 2 from "jacket" (transposed ck)', () => {
+    expect(levenshtein('jakcet', 'jacket')).toBe(2);
+  });
+
+  it('rejects strings beyond distance 2 from any catalogue word', () => {
+    expect(levenshtein('xyzwq', 'waterproof')).toBeGreaterThan(2);
+  });
+});
+
+describe('fuzzy search fallback', () => {
+  it('"wterproof jakcet" (two typos) surfaces waterproof shell jacket products', () => {
+    const results = search('wterproof jakcet', realCatalog, realSynonyms);
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.some((p) => p.name === 'Storm Cirrus Shell')).toBe(true);
+  });
+
+  it('a clearly nonsense query returns no results', () => {
+    expect(search('xyzwqq zzzzwww', realCatalog, realSynonyms)).toHaveLength(0);
+  });
+});
 
 describe("women's clothing line", () => {
   it('the catalogue carries at least 6 women\'s clothing products', () => {
