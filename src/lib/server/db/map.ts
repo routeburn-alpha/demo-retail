@@ -8,7 +8,7 @@ import type { FacetOrder, CategoryFacetConfig } from '$lib/domain/facets';
  * Pure — no DB or env dependency, so it is unit-testable in isolation.
  */
 export function toProduct(row: ProductRow): Product {
-  return {
+  const product: Product = {
     id: row.id,
     name: row.name,
     category: row.category,
@@ -16,6 +16,11 @@ export function toProduct(row: ProductRow): Product {
     description: row.description,
     imageUrl: row.imageUrl
   };
+  if (row.salePriceCents != null) {
+    product.salePrice = row.salePriceCents / 100;
+    product.discountPct = Math.round((1 - row.salePriceCents / row.priceCents) * 100);
+  }
+  return product;
 }
 
 /**

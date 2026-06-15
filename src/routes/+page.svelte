@@ -190,7 +190,15 @@
             <p class="text-[10px] uppercase tracking-[0.2em] text-ink/70">{product.category}</p>
             <div class="mt-1 flex items-start justify-between gap-3">
               <h3 class="text-sm font-medium text-ink">{product.name}</h3>
-              <p class="text-sm text-ink/75">{formatPrice(product.price)}</p>
+              {#if product.salePrice != null && product.discountPct != null}
+                <div class="flex flex-col items-end gap-0.5">
+                  <s data-testid="original-price" class="text-xs text-ink/45">{formatPrice(product.price)}</s>
+                  <span data-testid="sale-price" class="text-sm font-medium text-red-600">{formatPrice(product.salePrice)}</span>
+                  <span data-testid="discount-badge" class="rounded bg-red-600 px-1 py-0.5 text-[10px] font-semibold text-white">-{product.discountPct}%</span>
+                </div>
+              {:else}
+                <p class="text-sm text-ink/75">{formatPrice(product.price)}</p>
+              {/if}
             </div>
           </div>
         </article>
@@ -219,7 +227,15 @@
             <p class="text-[10px] uppercase tracking-[0.2em] text-ink/70">{product.category}</p>
             <div class="mt-1 flex items-start justify-between gap-3">
               <h3 class="text-sm font-medium text-ink">{product.name}</h3>
-              <p class="text-sm text-ink/75">{formatPrice(product.price)}</p>
+              {#if product.salePrice != null && product.discountPct != null}
+                <div class="flex flex-col items-end gap-0.5">
+                  <s data-testid="original-price" class="text-xs text-ink/45">{formatPrice(product.price)}</s>
+                  <span data-testid="sale-price" class="text-sm font-medium text-red-600">{formatPrice(product.salePrice)}</span>
+                  <span data-testid="discount-badge" class="rounded bg-red-600 px-1 py-0.5 text-[10px] font-semibold text-white">-{product.discountPct}%</span>
+                </div>
+              {:else}
+                <p class="text-sm text-ink/75">{formatPrice(product.price)}</p>
+              {/if}
             </div>
           </div>
         </article>

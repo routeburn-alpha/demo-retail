@@ -21,6 +21,7 @@ type CatalogEntry = {
   name: string;
   category: string;
   price: number;
+  salePrice?: number;
   description: string;
   imageUrl: string;
   department: Department;
@@ -44,6 +45,7 @@ const coreRows: NewProductRow[] = catalog.map((p) => ({
   name: p.name,
   category: p.category,
   priceCents: Math.round(p.price * 100),
+  salePriceCents: p.salePrice != null ? Math.round(p.salePrice * 100) : null,
   description: p.description,
   imageUrl: p.imageUrl,
   department: p.department,
@@ -80,6 +82,7 @@ async function main() {
           name: row.name,
           category: row.category,
           priceCents: row.priceCents,
+          salePriceCents: row.salePriceCents,
           description: row.description,
           imageUrl: row.imageUrl,
           department: row.department,
