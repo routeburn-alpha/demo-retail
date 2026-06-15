@@ -6,7 +6,8 @@
     "price": 320,
     "description": "Three-layer waterproof shell for alpine summer summits and shoulder-season rain. Pit zips, helmet-compatible hood.",
     "imageUrl": "/products/shell-001.jpg",
-    "department": "mens"
+    "department": "mens",
+    "salePrice": 256
   },
   {
     "id": "down-001",
@@ -42,7 +43,8 @@
     "price": 145,
     "description": "Cushioned trail runner with 4mm lugs for mixed terrain. Wide forefoot, rock plate underfoot.",
     "imageUrl": "/products/tr-001.jpg",
-    "department": "mens"
+    "department": "mens",
+    "salePrice": 116
   },
   {
     "id": "boot-001",
@@ -73,10 +75,10 @@
   },
   {
     "id": "bag-001",
-    "name": "Hollowfill 0°C Sleeping Bag",
+    "name": "Hollowfill 0\u00b0C Sleeping Bag",
     "category": "sleeping bag",
     "price": 195,
-    "description": "Synthetic 0°C comfort-rated bag that keeps insulating when damp. Ideal for coastal multi-days.",
+    "description": "Synthetic 0\u00b0C comfort-rated bag that keeps insulating when damp. Ideal for coastal multi-days.",
     "imageUrl": "/products/bag-001.jpg",
     "department": "unisex"
   },

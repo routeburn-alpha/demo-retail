@@ -45,6 +45,17 @@ const synonyms: Synonyms = {
   rucksack: ['backpack']
 };
 
+const saleProduct: Product = {
+  id: 'shell-001',
+  name: 'Storm Cirrus Shell',
+  category: 'shell jacket',
+  price: 320,
+  salePrice: 256,
+  discountPct: 20,
+  description: 'three layer waterproof',
+  imageUrl: 'https://example.com/shell-001.jpg'
+};
+
 const data = { catalog, synonyms, category: null, facetOrder: [], defaultFacetOrder: [] };
 
 describe('Routeburn storefront', () => {
@@ -104,5 +115,17 @@ describe('Routeburn storefront', () => {
     const screen = render(StorefrontPage, { data });
     await screen.getByLabelText('Search').fill('  trainers  ');
     await expect.element(screen.getByText(/for "trainers"/i)).toBeVisible();
+  });
+
+  it('sale badge shows strikethrough original price, sale price, and discount percent', async () => {
+    const catalogWithSale = catalog.map((p) => (p.id === 'shell-001' ? saleProduct : p));
+    const screen = render(StorefrontPage, { data: { ...data, catalog: catalogWithSale } });
+    // strikethrough original price
+    await expect.element(screen.getByTestId('original-price')).toBeVisible();
+    // sale price
+    await expect.element(screen.getByTestId('sale-price')).toBeVisible();
+    // discount badge
+    await expect.element(screen.getByTestId('discount-badge')).toBeVisible();
+    await expect.element(screen.getByTestId('discount-badge')).toHaveTextContent('-20%');
   });
 });

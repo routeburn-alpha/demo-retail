@@ -28,6 +28,7 @@ export const products = pgTable('products', {
   priceCents: integer('price_cents').notNull(),
   description: text('description').notNull(),
   imageUrl: text('image_url').notNull(),
+  salePriceCents: integer('sale_price_cents'),
   department: departmentEnum('department').notNull().default('unisex'),
   collection: collectionEnum('collection').notNull().default('core'),
   hidden: boolean('hidden').notNull().default(false),

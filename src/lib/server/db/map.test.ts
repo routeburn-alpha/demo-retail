@@ -8,6 +8,7 @@ const row: ProductRow = {
   name: 'Storm Cirrus Shell',
   category: 'shell jacket',
   priceCents: 32000,
+  salePriceCents: null,
   description: 'Three-layer waterproof shell.',
   imageUrl: '/products/shell-001.jpg',
   department: 'mens',
@@ -43,6 +44,20 @@ describe('toProduct', () => {
     expect(keys).not.toContain('active');
     expect(keys).not.toContain('collection');
     expect(keys).not.toContain('priceCents');
+    expect(keys).not.toContain('salePriceCents');
+  });
+
+  it('computes salePrice and discountPct when salePriceCents is set', () => {
+    const saleRow = { ...row, salePriceCents: 25600 }; // $256 on a $320 item = 20% off
+    const product = toProduct(saleRow);
+    expect(product.salePrice).toBe(256);
+    expect(product.discountPct).toBe(20);
+  });
+
+  it('omits salePrice and discountPct when salePriceCents is null', () => {
+    const product = toProduct({ ...row, salePriceCents: null });
+    expect(product.salePrice).toBeUndefined();
+    expect(product.discountPct).toBeUndefined();
   });
 });
 
