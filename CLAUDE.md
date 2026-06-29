@@ -3,6 +3,8 @@
 **Read [`FRAMEWORK.md`](FRAMEWORK.md) first** — it explains the opinionated SDLC this repo
 demonstrates. This file is the agent-facing rule sheet.
 
+_Last updated: 2026-06-29_
+
 Tarn & Trail is a retail storefront: **SvelteKit 2 + Drizzle ORM + Postgres (Neon)**, tested with
 **Vitest** (browser mode via `vitest-browser-svelte`).
 
