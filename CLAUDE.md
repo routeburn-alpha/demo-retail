@@ -1,5 +1,7 @@
 # CLAUDE.md
 
+**Last updated: 2026-06-29**
+
 **Read [`FRAMEWORK.md`](FRAMEWORK.md) first** — it explains the opinionated SDLC this repo
 demonstrates. This file is the agent-facing rule sheet.
 
