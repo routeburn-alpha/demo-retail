@@ -11,7 +11,7 @@ import {
 } from 'drizzle-orm/pg-core';
 
 /**
- * Two storefronts share one table. `core` is the visible Tarn & Trail catalogue;
+ * Two storefronts share one table. `core` is the visible Routeburn catalogue;
  * `elsewhere` is the hidden "Gear for the Long Way Out" collection, surfaced only
  * once a shopper discovers it. Hidden rows are real, purchasable products.
  */

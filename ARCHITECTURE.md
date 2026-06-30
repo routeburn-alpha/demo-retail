@@ -1,6 +1,6 @@
-# Architecture & Technical-Design Rulebook — Tarn & Trail
+# Architecture & Technical-Design Rulebook — Routeburn
 
-This is the **authoritative technical-design context** for the Tarn & Trail storefront and the
+This is the **authoritative technical-design context** for the Routeburn storefront and the
 `search-discovery` studio that drives it. Every spec, idea technical-design, and task in studio-ai
 should be written and reviewed against the rules below. It is intentionally **prescriptive**: it
 uses **MUST / SHOULD / MAY** the way [`standards/`](standards/) does, because in this repo design
