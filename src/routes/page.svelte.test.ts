@@ -75,6 +75,13 @@ describe('Routeburn storefront', () => {
     await expect.element(screen.getByText('Cascade Trail Runner')).toBeVisible();
   });
 
+  it('typing a misspelled query "jakcet" surfaces the shell jacket via fuzzy matching', async () => {
+    // Demo: mistype "jacket" as "jakcet" (2 edits, threshold floor(6/3)=2) — the right product appears
+    const screen = render(StorefrontPage, { data });
+    await screen.getByLabelText('Search').fill('jakcet');
+    await expect.element(screen.getByText('Storm Cirrus Shell')).toBeVisible();
+  });
+
   it('typing a nonsense query shows the popular-query pills with the right labels', async () => {
     const screen = render(StorefrontPage, { data });
     await screen.getByLabelText('Search').fill('xyzpdq');

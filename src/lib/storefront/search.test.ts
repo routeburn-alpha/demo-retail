@@ -10,6 +10,24 @@ const realSynonyms: Synonyms = JSON.parse(readFileSync('static/synonyms.json', '
 const isWomens = (p: Product) => /women'?s/i.test(p.name);
 
 describe('fuzzy matching', () => {
+  it('rejects a token whose edit distance exceeds the length-based threshold', () => {
+    // "jaxt" (length 4) has maxDistance = floor(4/3) = 1.
+    // levenshtein("jaxt", "jacket") = 3, so it must NOT match.
+    const catalog: Product[] = [
+      { id: 'a', name: 'Rain Jacket', category: 'jacket', price: 100, description: '', imageUrl: '' }
+    ];
+    const results = search('jaxt', catalog, {});
+    expect(results).toHaveLength(0);
+  });
+
+  it('demo: "wterproof jakcet" returns jacket products despite two typos', () => {
+    // "jakcet" is distance 2 from "jacket"; floor(6/3)=2 → within threshold.
+    // The demo beat: mistype the query and the right gear still surfaces.
+    const results = search('wterproof jakcet', realCatalog, realSynonyms);
+    const jackets = results.filter((p) => p.category.includes('jacket'));
+    expect(jackets.length).toBeGreaterThan(0);
+  });
+
   it('falls back to fuzzy when exact and synonym stages return fewer than 3 results', () => {
     // "jaket" is a 1-character-off typo of "jacket" — no exact or synonym match
     // fuzzy should surface all jacket products (score = 80 - 1*10 = 70)
