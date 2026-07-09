@@ -133,4 +133,11 @@ describe('Routeburn storefront', () => {
     await expect.element(screen.getByTestId('discount-badge')).toBeVisible();
     await expect.element(screen.getByTestId('discount-badge')).toHaveTextContent('-20%');
   });
+
+  it('search input is larger: has py-3 and text-base classes for improved visibility', async () => {
+    const screen = render(StorefrontPage, { data });
+    const input = screen.getByLabelText('Search');
+    await expect.element(input).toHaveClass('py-3');
+    await expect.element(input).toHaveClass('text-base');
+  });
 });
