@@ -59,9 +59,9 @@
 <header class="sticky top-0 z-10 border-b border-line bg-surface/95 backdrop-blur">
   <div class="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:gap-6 sm:px-6 sm:py-5">
     <a href="/" class="font-display whitespace-nowrap text-sm tracking-[0.15em] text-ink sm:text-xl sm:tracking-[0.3em]">ROUTEBURN</a>
-    <div class="relative w-full max-w-sm">
+    <div class="relative w-full max-w-md">
       <svg
-        class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/60"
+        class="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-ink/60"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
@@ -77,7 +77,7 @@
         bind:value={query}
         aria-label="Search"
         placeholder="Search the catalogue…"
-        class="w-full rounded-full border border-line bg-bg py-2 pl-9 pr-9 text-sm text-ink placeholder:text-ink/55 focus:border-accent focus:outline-none"
+        class="w-full rounded-full border border-line bg-bg py-3 pl-10 pr-10 text-base text-ink placeholder:text-ink/55 focus:border-accent focus:outline-none"
       />
       {#if query.length > 0}
         <button
