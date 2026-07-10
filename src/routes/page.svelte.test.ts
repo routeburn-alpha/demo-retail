@@ -64,9 +64,9 @@ describe('Routeburn storefront', () => {
     await expect.element(screen.getByRole('link', { name: 'ROUTEBURN' })).toBeVisible();
   });
 
-  it('the hero tagline reads "Chase the ridgeline."', async () => {
+  it('the hero tagline reads "climb everest"', async () => {
     const screen = render(StorefrontPage, { data });
-    await expect.element(screen.getByText('Chase the ridgeline.')).toBeVisible();
+    await expect.element(screen.getByText('climb everest')).toBeVisible();
   });
 
   it('the hero banner has a Routeburn trail backdrop image', async () => {
