@@ -140,4 +140,14 @@ describe('Routeburn storefront', () => {
     await expect.element(input).toHaveClass('py-3');
     await expect.element(input).toHaveClass('text-base');
   });
+
+  it('zero-results shows exactly 5 suggestion pills with data-testid="suggestion-pill"', async () => {
+    const screen = render(StorefrontPage, { data });
+    await screen.getByLabelText('Search').fill('xyzzy-not-a-product');
+    await expect.element(screen.getByTestId('zero-results')).toBeVisible();
+    const pills = screen.getByTestId('suggestion-pill').elements();
+    expect(pills).toHaveLength(5);
+    const labels = ['rain jacket', 'trail runners', 'sleeping bag', 'down vest', 'merino base layer'];
+    pills.forEach((el, i) => expect(el.textContent?.trim()).toBe(labels[i]));
+  });
 });
