@@ -249,6 +249,7 @@
         {#each POPULAR_QUERIES as suggestion (suggestion)}
           <button
             type="button"
+            data-testid="suggestion-pill"
             onclick={() => setQuery(suggestion)}
             class="rounded-full border border-line bg-surface px-5 py-2 text-sm text-ink transition hover:border-accent hover:text-accent"
           >
