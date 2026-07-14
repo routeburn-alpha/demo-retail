@@ -1,4 +1,4 @@
-# Tarn & Trail — Demo Storefront
+# Routeburn — Demo Storefront
 
 A minimal one-page outdoor-gear storefront used as the customer-facing product for the seeded `demo-alpha / search-discovery` studio in [studio-ai](https://studio-ai-one.vercel.app/).
 

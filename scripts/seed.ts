@@ -34,7 +34,7 @@ function slugify(s: string): string {
     .replace(/^-+|-+$/g, '');
 }
 
-// The visible Tarn & Trail catalogue — sourced from the existing static catalog.
+// The visible Routeburn catalogue — sourced from the existing static catalog.
 const catalog: CatalogEntry[] = JSON.parse(
   readFileSync(resolve(root, 'static/catalog.json'), 'utf-8')
 );
