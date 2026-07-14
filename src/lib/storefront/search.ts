@@ -42,9 +42,12 @@ export function orderFacets(
     .map((entry) => entry.facetKey);
 }
 
-export function applySynonyms(query: string, synonyms: Synonyms): string[] {
+export function applySynonyms(
+  query: string,
+  synonyms: Synonyms
+): { phrases: string[]; composed: string } {
   const lower = query.toLowerCase().trim();
-  if (!lower) return [];
+  if (!lower) return { phrases: [], composed: lower };
 
   const phrases = new Set<string>([lower]);
   let rewritten = lower;
@@ -56,7 +59,7 @@ export function applySynonyms(query: string, synonyms: Synonyms): string[] {
     }
   }
   phrases.add(rewritten);
-  return [...phrases];
+  return { phrases: [...phrases], composed: rewritten };
 }
 
 export function search(query: string, catalog: Product[], synonyms: Synonyms): Product[] {
@@ -64,8 +67,9 @@ export function search(query: string, catalog: Product[], synonyms: Synonyms): P
   if (!trimmed) return catalog;
 
   const lower = trimmed.toLowerCase();
-  const phrases = applySynonyms(trimmed, synonyms);
+  const { phrases, composed } = applySynonyms(trimmed, synonyms);
   // Synonym phrases are all phrases except the original query.
+  // The composed phrase (full rewrite of all tokens) scores higher than individual expansions.
   const synonymPhrases = phrases.filter((p) => p !== lower);
 
   const tokensMatch = (tokens: string[], haystack: string): boolean =>
@@ -74,6 +78,7 @@ export function search(query: string, catalog: Product[], synonyms: Synonyms): P
   const scored = new Map<string, { product: Product; score: number }>();
 
   const exactTokens = lower.split(/\s+/).filter(Boolean);
+  const composedTokens = composed.split(/\s+/).filter(Boolean);
 
   for (const product of catalog) {
     const haystack = `${product.name} ${product.category}`.toLowerCase();
@@ -83,7 +88,14 @@ export function search(query: string, catalog: Product[], synonyms: Synonyms): P
       continue;
     }
 
+    // Composed phrase (all tokens rewritten) scores 95; individual expansions score 90.
+    if (composed !== lower && tokensMatch(composedTokens, haystack)) {
+      scored.set(product.id, { product, score: 95 });
+      continue;
+    }
+
     for (const phrase of synonymPhrases) {
+      if (phrase === composed) continue; // already handled above
       const tokens = phrase.split(/\s+/).filter(Boolean);
       if (tokensMatch(tokens, haystack)) {
         scored.set(product.id, { product, score: 90 });

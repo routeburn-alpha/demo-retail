@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
-import { orderFacets, search, type Product, type Synonyms } from './search';
+import { orderFacets, search, applySynonyms, type Product, type Synonyms } from './search';
 import type { FacetOrder } from '$lib/domain/facets';
 
 // Pure logic over the REAL static catalogue/synonyms (read from disk, same source the seed uses).
@@ -66,6 +66,41 @@ describe("women's clothing line", () => {
     const results = search('womens', realCatalog, realSynonyms);
     expect(results.length).toBeGreaterThan(0);
     expect(results.every(isWomens)).toBe(true);
+  });
+});
+
+// Spike: validate multi-token synonym composition (pure unit, no I/O — allowed per ARCHITECTURE §4.1).
+// Validates that each token in a multi-word query expands independently and the composed phrase
+// ranks above partial-expansion matches (e.g. "rain jkt" → "rain jacket" beats "jacket" alone).
+describe('multi-token synonym expansion', () => {
+  // Mini-catalog: down-jkt comes first so a flat score-90 tie would incorrectly favour it.
+  const jktCatalog: Product[] = [
+    { id: 'down-jkt', name: 'Down Jacket', category: 'down jacket', price: 200, description: '', imageUrl: '' },
+    { id: 'rain-jkt', name: 'Rain Jacket', category: 'shell jacket', price: 100, description: '', imageUrl: '' }
+  ];
+  const jktSynonyms: Synonyms = { jkt: ['jacket'] };
+
+  it('generates the composed expansion phrase alongside individual expansions', () => {
+    // applySynonyms must produce "rain jacket" (composed) as well as "jacket" (individual).
+    const { phrases, composed } = applySynonyms('rain jkt', jktSynonyms);
+    expect(composed).toBe('rain jacket');
+    expect(phrases).toContain('jacket');
+    expect(phrases).toContain('rain jacket');
+  });
+
+  it('composed match ("rain jacket") ranks above partial match ("jacket" only)', () => {
+    // rain-jkt: matches composed "rain jacket" (both tokens covered)
+    // down-jkt: matches only partial "jacket" expansion
+    // rain-jkt must rank first even though down-jkt appears first in the catalog.
+    const results = search('rain jkt', jktCatalog, jktSynonyms);
+    expect(results[0].id).toBe('rain-jkt');
+  });
+
+  it('real synonyms: "jkt" expands to "jacket" and finds jacket products', () => {
+    // Validates the jkt→jacket synonym is present in synonyms.json.
+    const results = search('rain jkt', realCatalog, realSynonyms);
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.every((p) => p.category.includes('jacket'))).toBe(true);
   });
 });
 

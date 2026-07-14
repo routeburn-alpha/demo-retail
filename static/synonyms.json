@@ -21,5 +21,6 @@
   "ladies": ["women"],
   "tights": ["leggings"],
   "yoga pants": ["leggings"],
-  "bra": ["sports bra"]
+  "bra": ["sports bra"],
+  "jkt": ["jacket"]
 }
