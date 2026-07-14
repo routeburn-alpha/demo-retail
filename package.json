@@ -16,7 +16,9 @@
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx scripts/seed.ts",
     "db:seed:standards": "tsx scripts/seed-standards.ts",
-    "db:seed:facets": "tsx scripts/seed-facets.ts"
+    "db:seed:facets": "tsx scripts/seed-facets.ts",
+    "db:seed:lowstock": "tsx scripts/demo-lowstock.ts",
+    "demo:reset": "bash scripts/demo-reset.sh"
   },
   "devDependencies": {
     "@sveltejs/adapter-vercel": "^5.5.0",
