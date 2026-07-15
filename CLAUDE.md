@@ -3,7 +3,7 @@
 **Read [`FRAMEWORK.md`](FRAMEWORK.md) first** — it explains the opinionated SDLC this repo
 demonstrates. This file is the agent-facing rule sheet.
 
-Tarn & Trail is a retail storefront: **SvelteKit 2 + Drizzle ORM + Postgres (Neon)**, tested with
+Routeburn is a retail storefront: **SvelteKit 2 + Drizzle ORM + Postgres (Neon)**, tested with
 **Vitest** (browser mode via `vitest-browser-svelte`).
 
 ## The SDLC
