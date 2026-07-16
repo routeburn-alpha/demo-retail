@@ -145,7 +145,7 @@
   </section>
 {/if}
 
-<main class="mx-auto max-w-6xl px-6 py-10">
+<main class="mx-auto max-w-6xl px-6 py-10 bg-red-600">
   {#if orderedFacets.length > 0}
     <div data-testid="facet-bar" class="mb-8">
       <p class="mb-3 text-[10px] uppercase tracking-[0.2em] text-ink/70">Filters</p>

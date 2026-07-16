@@ -141,6 +141,12 @@ describe('Routeburn storefront', () => {
     await expect.element(input).toHaveClass('text-base');
   });
 
+  it('main page container has a red background', async () => {
+    const screen = render(StorefrontPage, { data });
+    const main = screen.getByRole('main');
+    await expect.element(main).toHaveClass('bg-red-600');
+  });
+
   it('zero-results shows exactly 5 suggestion pills with data-testid="suggestion-pill"', async () => {
     const screen = render(StorefrontPage, { data });
     await screen.getByLabelText('Search').fill('xyzzy-not-a-product');
