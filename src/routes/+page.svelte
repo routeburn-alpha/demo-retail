@@ -208,7 +208,7 @@
     <p class="mb-6 text-sm text-ink/80">
       {results.length} {results.length === 1 ? 'result' : 'results'} for "{query.trim()}"
     </p>
-    <div class="flex flex-wrap justify-start gap-x-5 gap-y-10" class:justify-center={results.length < 4}>
+    <div data-testid="search-results" style="background-color: #FFFF00" class="flex flex-wrap justify-start gap-x-5 gap-y-10" class:justify-center={results.length < 4}>
       {#each results as product (product.id)}
         <article
           data-testid="product-card"

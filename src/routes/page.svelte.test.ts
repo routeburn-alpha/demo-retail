@@ -134,6 +134,16 @@ describe('Routeburn storefront', () => {
     await expect.element(screen.getByTestId('discount-badge')).toHaveTextContent('-20%');
   });
 
+  it('search results container has a yellow (#FFFF00) background', async () => {
+    const screen = render(StorefrontPage, { data });
+    await screen.getByLabelText('Search').fill('trainers');
+    const container = screen.getByTestId('search-results');
+    await expect.element(container).toBeVisible();
+    const el = container.element();
+    const bg = window.getComputedStyle(el).backgroundColor;
+    expect(bg).toBe('rgb(255, 255, 0)');
+  });
+
   it('search input is larger: has py-3 and text-base classes for improved visibility', async () => {
     const screen = render(StorefrontPage, { data });
     const input = screen.getByLabelText('Search');
