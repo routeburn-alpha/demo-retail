@@ -1,0 +1,6 @@
+Deploy pipeline probe
+
+Created to test whether a demo-retail production deploy fires a deployment_status
+delivery to studio-ai and heals task #41 (releasing -> shipped).
+
+Safe to delete.
