@@ -20,10 +20,6 @@ name: CI
 on:
   pull_request:
     branches: [main]
-  # Also run on direct pushes to non-main branches so a feature branch is gated
-  # even before its PR exists. PRs into main are covered by the event above.
-  push:
-    branches-ignore: [main]
 
 # A newer push to the same branch supersedes an in-flight run; cancel the old one.
 concurrency:

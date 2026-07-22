@@ -2,6 +2,12 @@
 
 A minimal one-page outdoor-gear storefront used as the customer-facing product for the seeded `demo-alpha / search-discovery` studio in [studio-ai](https://studio-ai-one.vercel.app/).
 
+## Live
+
+- **Production:** https://demo-retail.vercel.app
+- **Previews:** every PR into `main` gets its own Vercel preview, linked from the PR's
+  `vercel[bot]` check (URL pattern `demo-retail-git-<branch>-routeburn.vercel.app`).
+
 ## What it demonstrates
 
 Two visible features that match shipped/validated ideas in the paired studio:
