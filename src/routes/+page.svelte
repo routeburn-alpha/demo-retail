@@ -56,7 +56,7 @@
   }
 </script>
 
-<div data-testid="page-root" class="bg-blue-50 min-h-screen">
+<div data-testid="page-root" class="min-h-screen" style="background-color: #f5f1ea">
 <header class="sticky top-0 z-10 border-b border-line bg-surface/95 backdrop-blur">
   <div class="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:gap-6 sm:px-6 sm:py-5">
     <a href="/" class="font-display whitespace-nowrap text-sm tracking-[0.15em] text-ink sm:text-xl sm:tracking-[0.3em]">ROUTEBURN</a>
