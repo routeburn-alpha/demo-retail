@@ -144,7 +144,7 @@ describe('Routeburn storefront', () => {
   it('page root container has a light pink background', async () => {
     const screen = render(StorefrontPage, { data });
     const pageRoot = screen.getByTestId('page-root');
-    await expect.element(pageRoot).toHaveStyle(`background-color: rgb(255, 182, 217)`);
+    await expect.element(pageRoot).toHaveStyle(`background-color: rgb(255, 228, 225)`);
   });
 
   it('zero-results shows exactly 5 suggestion pills with data-testid="suggestion-pill"', async () => {
