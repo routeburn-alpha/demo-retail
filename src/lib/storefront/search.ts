@@ -41,9 +41,21 @@ export function orderFacets(
 }
 
 /**
- * Basic exact search: a product matches when every whitespace-separated query token is a
- * substring of its name or category (case-insensitive). No typo tolerance and no synonym
- * expansion — that richer matching is handled elsewhere.
+ * Maps each abbreviation to its canonical form and vice-versa so that query tokens and product
+ * text written in different shorthand forms still match.
+ */
+const ABBREVIATIONS: Record<string, string> = {
+  jkt: 'jacket',
+  jacket: 'jkt',
+  gtx: 'goretex',
+  goretex: 'gtx',
+};
+
+/**
+ * Search: a product matches when every whitespace-separated query token is a substring of its
+ * name or category (case-insensitive). Known abbreviations are expanded so that, e.g., "jkt"
+ * matches products containing "jacket" and "goretex" matches products containing "GTX".
+ * Typo tolerance and open-ended synonym expansion are not supported.
  */
 export function search(query: string, catalog: Product[]): Product[] {
   const trimmed = query.trim();
@@ -52,6 +64,9 @@ export function search(query: string, catalog: Product[]): Product[] {
   const tokens = trimmed.toLowerCase().split(/\s+/).filter(Boolean);
   return catalog.filter((product) => {
     const haystack = `${product.name} ${product.category}`.toLowerCase();
-    return tokens.every((token) => haystack.includes(token));
+    return tokens.every((token) => {
+      const alias = ABBREVIATIONS[token];
+      return haystack.includes(token) || (alias !== undefined && haystack.includes(alias));
+    });
   });
 }

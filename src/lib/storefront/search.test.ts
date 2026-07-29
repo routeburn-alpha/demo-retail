@@ -41,6 +41,42 @@ describe("women's clothing line", () => {
   });
 });
 
+describe('abbreviation search', () => {
+  it('"jkt" matches products with "jacket" in name or category', () => {
+    const results = search('jkt', realCatalog);
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.every((p) => `${p.name} ${p.category}`.toLowerCase().includes('jacket'))).toBe(
+      true
+    );
+  });
+
+  it('"gtx" matches products with "gtx" in name or category', () => {
+    const results = search('gtx', realCatalog);
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.every((p) => `${p.name} ${p.category}`.toLowerCase().includes('gtx'))).toBe(
+      true
+    );
+  });
+
+  it('"goretex" matches products using the GTX abbreviation', () => {
+    // Products use "GTX" in their name, not "goretex" — abbreviation expansion bridges the gap.
+    const results = search('goretex', realCatalog);
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.some((p) => p.name.toLowerCase().includes('gtx'))).toBe(true);
+  });
+
+  it('"shell jkt" matches shell jacket products', () => {
+    const results = search('shell jkt', realCatalog);
+    expect(results.length).toBeGreaterThan(0);
+    expect(
+      results.every((p) => {
+        const h = `${p.name} ${p.category}`.toLowerCase();
+        return h.includes('shell') && h.includes('jacket');
+      })
+    ).toBe(true);
+  });
+});
+
 // Pure unit test — orderFacets has no I/O (it receives the ordering config as input),
 // so a unit test is allowed per ARCHITECTURE §4.1. No DB, no mocks.
 
