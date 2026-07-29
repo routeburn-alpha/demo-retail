@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { search, orderFacets, type Product, type Synonyms } from '$lib/storefront/search';
+  import { search, orderFacets, type Product } from '$lib/storefront/search';
   import { POPULAR_QUERIES } from '$lib/storefront/popular-queries';
   import type { FacetOrder } from '$lib/domain/facets';
   import type { DepartmentFilter } from '$lib/domain/department';
@@ -9,7 +9,6 @@
   }: {
     data: {
       catalog: Product[];
-      synonyms: Synonyms;
       category: string | null;
       facetOrder: FacetOrder[];
       defaultFacetOrder: FacetOrder[];
@@ -25,7 +24,7 @@
   ]);
 
   let query = $state('');
-  let results = $derived(search(query, data.catalog, data.synonyms));
+  let results = $derived(search(query, data.catalog));
 
   // Facets to show = the union of the category + default configs, ordered by the
   // category's ordering (default as fallback) via the shared pure helper.

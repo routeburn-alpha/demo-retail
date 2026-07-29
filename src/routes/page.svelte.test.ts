@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import StorefrontPage from './+page.svelte';
-import type { Product, Synonyms } from '$lib/storefront/search';
+import type { Product } from '$lib/storefront/search';
 import { POPULAR_QUERIES } from '$lib/storefront/popular-queries';
 
 const catalog: Product[] = [
@@ -36,14 +36,16 @@ const catalog: Product[] = [
     price: 55,
     description: 'pair under a shell mitt for cold belays',
     imageUrl: 'https://example.com/gloves-001.jpg'
+  },
+  {
+    id: 'bag-001',
+    name: 'Cirque Sleeping Bag',
+    category: 'sleeping bag',
+    price: 280,
+    description: 'down-filled three season',
+    imageUrl: 'https://example.com/bag-001.jpg'
   }
 ];
-
-const synonyms: Synonyms = {
-  trainers: ['trail runner'],
-  runners: ['trail runner'],
-  rucksack: ['backpack']
-};
 
 const saleProduct: Product = {
   id: 'shell-001',
@@ -56,7 +58,7 @@ const saleProduct: Product = {
   imageUrl: 'https://example.com/shell-001.jpg'
 };
 
-const data = { catalog, synonyms, category: null, facetOrder: [], defaultFacetOrder: [] };
+const data = { catalog, category: null, facetOrder: [], defaultFacetOrder: [] };
 
 describe('Routeburn storefront', () => {
   it('the brand renders as "ROUTEBURN" in the header', async () => {
@@ -74,9 +76,9 @@ describe('Routeburn storefront', () => {
     await expect.element(screen.getByTestId('hero-backdrop')).toBeInTheDocument();
   });
 
-  it('typing "trainers" returns trail-runner products via synonym substitution', async () => {
+  it('typing "trail runner" returns the matching trail-runner product', async () => {
     const screen = render(StorefrontPage, { data });
-    await screen.getByLabelText('Search').fill('trainers');
+    await screen.getByLabelText('Search').fill('trail runner');
     await expect.element(screen.getByText('Cascade Trail Runner')).toBeVisible();
   });
 
@@ -92,15 +94,15 @@ describe('Routeburn storefront', () => {
   it('clicking a pill re-runs the search with that text', async () => {
     const screen = render(StorefrontPage, { data });
     await screen.getByLabelText('Search').fill('xyzpdq');
-    await screen.getByRole('button', { name: 'trail runners' }).click();
-    await expect.element(screen.getByText('Cascade Trail Runner')).toBeVisible();
+    await screen.getByRole('button', { name: 'sleeping bag' }).click();
+    await expect.element(screen.getByText('Cirque Sleeping Bag')).toBeVisible();
   });
 
-  it('multi-synonym query: "rucksack trainers" returns BOTH backpack AND trail runner', async () => {
+  it('multi-token query matches only products whose name/category contains every token', async () => {
     const screen = render(StorefrontPage, { data });
-    await screen.getByLabelText('Search').fill('rucksack trainers');
-    await expect.element(screen.getByText('Tarn 38L Backpack')).toBeVisible();
+    await screen.getByLabelText('Search').fill('trail runner');
     await expect.element(screen.getByText('Cascade Trail Runner')).toBeVisible();
+    await expect.element(screen.getByText('Tarn 38L Backpack')).not.toBeInTheDocument();
   });
 
   it('keyword precision: "shell" matches the shell jacket but NOT the gloves whose description mentions "shell mitt"', async () => {
@@ -110,16 +112,16 @@ describe('Routeburn storefront', () => {
     await expect.element(screen.getByText('Windproof Liner Gloves')).not.toBeInTheDocument();
   });
 
-  it('case-insensitive: typing "TRAINERS" returns trail-runner products', async () => {
+  it('case-insensitive: typing "TRAIL RUNNER" returns trail-runner products', async () => {
     const screen = render(StorefrontPage, { data });
-    await screen.getByLabelText('Search').fill('TRAINERS');
+    await screen.getByLabelText('Search').fill('TRAIL RUNNER');
     await expect.element(screen.getByText('Cascade Trail Runner')).toBeVisible();
   });
 
   it('result-count label trims surrounding whitespace from the displayed query', async () => {
     const screen = render(StorefrontPage, { data });
-    await screen.getByLabelText('Search').fill('  trainers  ');
-    await expect.element(screen.getByText(/for "trainers"/i)).toBeVisible();
+    await screen.getByLabelText('Search').fill('  trail runner  ');
+    await expect.element(screen.getByText(/for "trail runner"/i)).toBeVisible();
   });
 
   it('sale badge shows strikethrough original price, sale price, and discount percent', async () => {
