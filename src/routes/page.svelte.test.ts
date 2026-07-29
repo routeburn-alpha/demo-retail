@@ -9,6 +9,7 @@ const catalog: Product[] = [
     id: 'tr-001',
     name: 'Cascade Trail Runner',
     category: 'trail runner',
+    type: 'clothing',
     price: 145,
     description: 'cushioned mixed terrain',
     imageUrl: 'https://example.com/tr-001.jpg'
@@ -17,6 +18,7 @@ const catalog: Product[] = [
     id: 'shell-001',
     name: 'Storm Cirrus Shell',
     category: 'shell jacket',
+    type: 'clothing',
     price: 320,
     description: 'three layer waterproof',
     imageUrl: 'https://example.com/shell-001.jpg'
@@ -25,6 +27,7 @@ const catalog: Product[] = [
     id: 'pack-001',
     name: 'Tarn 38L Backpack',
     category: 'backpack',
+    type: 'equipment',
     price: 220,
     description: 'touring pack with hipbelt pockets',
     imageUrl: 'https://example.com/pack-001.jpg'
@@ -33,6 +36,7 @@ const catalog: Product[] = [
     id: 'gloves-001',
     name: 'Windproof Liner Gloves',
     category: 'gloves',
+    type: 'clothing',
     price: 55,
     description: 'pair under a shell mitt for cold belays',
     imageUrl: 'https://example.com/gloves-001.jpg'
@@ -41,6 +45,7 @@ const catalog: Product[] = [
     id: 'bag-001',
     name: 'Cirque Sleeping Bag',
     category: 'sleeping bag',
+    type: 'equipment',
     price: 280,
     description: 'down-filled three season',
     imageUrl: 'https://example.com/bag-001.jpg'
@@ -51,6 +56,7 @@ const saleProduct: Product = {
   id: 'shell-001',
   name: 'Storm Cirrus Shell',
   category: 'shell jacket',
+  type: 'clothing',
   price: 320,
   salePrice: 256,
   discountPct: 20,

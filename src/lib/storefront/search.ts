@@ -4,6 +4,7 @@ export type Product = {
   id: string;
   name: string;
   category: string;
+  type: 'clothing' | 'equipment';
   price: number;
   salePrice?: number;
   discountPct?: number;

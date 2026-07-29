@@ -12,6 +12,7 @@ const catalog: Product[] = [
     id: 'tent-001',
     name: 'Skyline 2P Tent',
     category: 'tent',
+    type: 'equipment',
     price: 410,
     description: 'two person three season',
     imageUrl: 'https://example.com/tent-001.jpg'

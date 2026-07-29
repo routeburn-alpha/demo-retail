@@ -12,6 +12,7 @@ export function toProduct(row: ProductRow): Product {
     id: row.id,
     name: row.name,
     category: row.category,
+    type: row.type,
     price: row.priceCents / 100,
     description: row.description,
     imageUrl: row.imageUrl

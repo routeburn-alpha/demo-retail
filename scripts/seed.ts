@@ -24,6 +24,7 @@ type CatalogEntry = {
   salePrice?: number;
   description: string;
   imageUrl: string;
+  type: 'clothing' | 'equipment';
   department: Department;
 };
 
@@ -48,6 +49,7 @@ const coreRows: NewProductRow[] = catalog.map((p) => ({
   salePriceCents: p.salePrice != null ? Math.round(p.salePrice * 100) : null,
   description: p.description,
   imageUrl: p.imageUrl,
+  type: p.type,
   department: p.department,
   collection: 'core',
   hidden: false,
@@ -85,6 +87,7 @@ async function main() {
           salePriceCents: row.salePriceCents,
           description: row.description,
           imageUrl: row.imageUrl,
+          type: row.type,
           department: row.department,
           collection: row.collection,
           hidden: row.hidden,

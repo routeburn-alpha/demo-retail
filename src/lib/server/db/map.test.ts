@@ -11,6 +11,7 @@ const row: ProductRow = {
   salePriceCents: null,
   description: 'Three-layer waterproof shell.',
   imageUrl: '/products/shell-001.jpg',
+  type: 'clothing',
   department: 'mens',
   collection: 'core',
   hidden: false,
@@ -34,8 +35,14 @@ describe('toProduct', () => {
       category: 'shell jacket',
       price: 320,
       description: 'Three-layer waterproof shell.',
-      imageUrl: '/products/shell-001.jpg'
+      imageUrl: '/products/shell-001.jpg',
+      type: 'clothing'
     });
+  });
+
+  it('passes the product type through to the domain Product', () => {
+    expect(toProduct(row).type).toBe('clothing');
+    expect(toProduct({ ...row, type: 'equipment' }).type).toBe('equipment');
   });
 
   it('does not leak DB-only fields onto the storefront Product', () => {
