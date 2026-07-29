@@ -17,15 +17,36 @@ describe('exact search', () => {
     ).toBe(true);
   });
 
-  it('does not tolerate typos (fuzzy matching removed)', () => {
-    // "jaket" is a one-character typo of "jacket"; exact matching surfaces nothing.
-    expect(search('jaket', realCatalog)).toEqual([]);
+  it('fuzzy-matches one-character typos like "jaket" → "jacket"', () => {
+    const results = search('jaket', realCatalog);
+    expect(results.length).toBeGreaterThan(0);
+    expect(
+      results.every((p) => `${p.name} ${p.category}`.toLowerCase().includes('jacket'))
+    ).toBe(true);
   });
 
-  it('does not expand synonyms (synonym matching removed)', () => {
-    // "womens" (no apostrophe) is not a literal token in any name/category — only the
-    // removed synonym layer used to surface the women's line for it.
-    expect(search('womens', realCatalog)).toEqual([]);
+  it('fuzzy-matches near-spellings like "womens" → products with "women\'s"', () => {
+    const results = search('womens', realCatalog);
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.every(isWomens)).toBe(true);
+  });
+});
+
+describe('fuzzy search', () => {
+  it('"jkt" fuzzy-matches "jacket" and returns only jacket products', () => {
+    const results = search('jkt', realCatalog);
+    expect(results.length).toBeGreaterThan(0);
+    expect(
+      results.every((p) => `${p.name} ${p.category}`.toLowerCase().includes('jacket'))
+    ).toBe(true);
+  });
+
+  it('multi-token query with abbreviated token "down jkt" returns down jacket products', () => {
+    const results = search('down jkt', realCatalog);
+    expect(results.length).toBeGreaterThan(0);
+    expect(
+      results.every((p) => `${p.name} ${p.category}`.toLowerCase().includes('down'))
+    ).toBe(true);
   });
 });
 

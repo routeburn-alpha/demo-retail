@@ -40,10 +40,41 @@ export function orderFacets(
     .map((entry) => entry.facetKey);
 }
 
+/** Compute the Levenshtein edit distance between two strings. */
+function levenshtein(a: string, b: string): number {
+  const m = a.length, n = b.length;
+  const prev = Array.from({ length: n + 1 }, (_, j) => j);
+  const curr = new Array<number>(n + 1);
+  for (let i = 1; i <= m; i++) {
+    curr[0] = i;
+    for (let j = 1; j <= n; j++) {
+      curr[j] =
+        a[i - 1] === b[j - 1]
+          ? prev[j - 1]
+          : 1 + Math.min(prev[j - 1], prev[j], curr[j - 1]);
+    }
+    prev.splice(0, n + 1, ...curr);
+  }
+  return prev[n];
+}
+
 /**
- * Basic exact search: a product matches when every whitespace-separated query token is a
- * substring of its name or category (case-insensitive). No typo tolerance and no synonym
- * expansion — that richer matching is handled elsewhere.
+ * Return true if the query token matches the haystack string. A token matches when:
+ * - it is an exact substring (case-insensitive), OR
+ * - it is >= 3 characters and its Levenshtein distance to some individual word in the
+ *   haystack is at most the absolute length difference between the two strings (allowing
+ *   abbreviations like "jkt" → "jacket" and one-character typos like "jaket" → "jacket").
+ */
+function tokenMatches(token: string, haystack: string, haystackWords: string[]): boolean {
+  if (haystack.includes(token)) return true;
+  if (token.length < 3) return false;
+  return haystackWords.some((w) => levenshtein(token, w) <= Math.abs(w.length - token.length));
+}
+
+/**
+ * Fuzzy search: a product matches when every whitespace-separated query token is either an
+ * exact substring of its name/category or fuzzy-matches a word in that text via Levenshtein
+ * distance (see tokenMatches). Short tokens (< 3 chars) require an exact substring match.
  */
 export function search(query: string, catalog: Product[]): Product[] {
   const trimmed = query.trim();
@@ -52,6 +83,7 @@ export function search(query: string, catalog: Product[]): Product[] {
   const tokens = trimmed.toLowerCase().split(/\s+/).filter(Boolean);
   return catalog.filter((product) => {
     const haystack = `${product.name} ${product.category}`.toLowerCase();
-    return tokens.every((token) => haystack.includes(token));
+    const haystackWords = haystack.split(/\s+/).filter(Boolean);
+    return tokens.every((token) => tokenMatches(token, haystack, haystackWords));
   });
 }
