@@ -1,59 +1,31 @@
 import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
-import { orderFacets, search, type Product, type Synonyms } from './search';
+import { orderFacets, search, type Product } from './search';
 import type { FacetOrder } from '$lib/domain/facets';
 
-// Pure logic over the REAL static catalogue/synonyms (read from disk, same source the seed uses).
-// No DB, no fetch, no mocks — allowed per ARCHITECTURE §4.1.
+// Pure logic over the REAL static catalogue (read from disk, same source the seed uses).
+// No DB, no fetch, no mocks — allowed per ARCHITECTURE §4.1 (the search matcher has no I/O).
 const realCatalog: Product[] = JSON.parse(readFileSync('static/catalog.json', 'utf-8'));
-const realSynonyms: Synonyms = JSON.parse(readFileSync('static/synonyms.json', 'utf-8'));
 const isWomens = (p: Product) => /women'?s/i.test(p.name);
 
-describe('fuzzy matching', () => {
-  it('falls back to fuzzy when exact and synonym stages return fewer than 3 results', () => {
-    // "jaket" is a 1-character-off typo of "jacket" — no exact or synonym match
-    // fuzzy should surface all jacket products (score = 80 - 1*10 = 70)
-    const results = search('jaket', realCatalog, realSynonyms);
+describe('exact search', () => {
+  it('matches every product whose name or category contains all query tokens', () => {
+    const results = search('jacket', realCatalog);
     expect(results.length).toBeGreaterThan(0);
-    expect(results.every((p) => p.category.includes('jacket'))).toBe(true);
+    expect(
+      results.every((p) => `${p.name} ${p.category}`.toLowerCase().includes('jacket'))
+    ).toBe(true);
   });
 
-  it('does not trigger fuzzy when exact/synonym already returns 3 or more results', () => {
-    // "jacket" exact match returns 4 products — fuzzy stage must not be reached
-    const exactResults = search('jacket', realCatalog, realSynonyms);
-    expect(exactResults.length).toBeGreaterThanOrEqual(3);
-    // If fuzzy were also appended, we'd get non-jacket results (e.g. "pack" tokens matching
-    // loosely). Verify every result is a genuine jacket match.
-    expect(exactResults.every((p) => p.category.includes('jacket'))).toBe(true);
+  it('does not tolerate typos (fuzzy matching removed)', () => {
+    // "jaket" is a one-character typo of "jacket"; exact matching surfaces nothing.
+    expect(search('jaket', realCatalog)).toEqual([]);
   });
 
-  it('exact matches rank above synonym matches which rank above fuzzy matches', () => {
-    // Build a tiny catalog: one exact hit, one synonym hit, one fuzzy hit
-    const miniCatalog: Product[] = [
-      { id: 'a', name: 'Shell Jacket', category: 'shell jacket', price: 100, description: '', imageUrl: '' },
-      { id: 'b', name: 'Rain Anorak', category: 'shell jacket', price: 90, description: '', imageUrl: '' },
-      { id: 'c', name: 'Jakket Hood', category: 'softshell', price: 80, description: '', imageUrl: '' }
-    ];
-    // "anorak" synonyms → "shell jacket", so product b gets synonym score
-    // "jaket" → fuzzy hit on product a/c; but a already gets exact via synonym chain?
-    // Use a simpler setup: query "jacket", no synonyms
-    const results = search('jacket', miniCatalog, {});
-    // a (name contains "jacket") and b (category "shell jacket") both exact-match at 100
-    // c doesn't match exactly, and catalog has 2 results ≥ ... wait, need <3 to trigger fuzzy
-    // Use a single-exact-result catalog instead
-    const singleCatalog: Product[] = [
-      { id: 'a', name: 'Shell Jacket', category: 'outerwear', price: 100, description: '', imageUrl: '' },
-      { id: 'b', name: 'Trail Runner', category: 'footwear', price: 90, description: '', imageUrl: '' },
-      { id: 'c', name: 'Jakket Hood', category: 'softshell', price: 80, description: '', imageUrl: '' }
-    ];
-    // query "jaket": no exact, no synonym → 0 results → triggers fuzzy
-    // "jaket" vs "jacket" (product a name) = distance 1 → score 70
-    // "jaket" vs "jakket" (product c name) = distance 1 → score 70
-    // "jaket" vs "outerwear"/"trail"/"runner"/"footwear"/"softshell" → large distances, score ≤ 0
-    const fuzzyResults = search('jaket', singleCatalog, {});
-    expect(fuzzyResults.map((p) => p.id)).toContain('a');
-    expect(fuzzyResults.map((p) => p.id)).toContain('c');
-    expect(fuzzyResults.map((p) => p.id)).not.toContain('b');
+  it('does not expand synonyms (synonym matching removed)', () => {
+    // "womens" (no apostrophe) is not a literal token in any name/category — only the
+    // removed synonym layer used to surface the women's line for it.
+    expect(search('womens', realCatalog)).toEqual([]);
   });
 });
 
@@ -62,8 +34,8 @@ describe("women's clothing line", () => {
     expect(realCatalog.filter(isWomens).length).toBeGreaterThanOrEqual(6);
   });
 
-  it('searching "womens" surfaces the women\'s line via synonyms', () => {
-    const results = search('womens', realCatalog, realSynonyms);
+  it('searching the literal "women\'s" surfaces only the women\'s line', () => {
+    const results = search("women's", realCatalog);
     expect(results.length).toBeGreaterThan(0);
     expect(results.every(isWomens)).toBe(true);
   });

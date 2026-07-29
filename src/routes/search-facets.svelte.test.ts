@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import StorefrontPage from './+page.svelte';
-import type { Product, Synonyms } from '$lib/storefront/search';
+import type { Product } from '$lib/storefront/search';
 import type { FacetOrder } from '$lib/domain/facets';
 
 // Real-Chromium component test (no mocks): render the real page with real `data`
@@ -18,12 +18,9 @@ const catalog: Product[] = [
   }
 ];
 
-const synonyms: Synonyms = {};
-
 type FacetData = { category?: string | null; facetOrder?: FacetOrder[]; defaultFacetOrder?: FacetOrder[] };
 const data = (over: FacetData) => ({
   catalog,
-  synonyms,
   category: over.category ?? null,
   facetOrder: over.facetOrder ?? [],
   defaultFacetOrder: over.defaultFacetOrder ?? []
