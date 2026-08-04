@@ -8,8 +8,8 @@ import type { FacetOrder } from '$lib/domain/facets';
 const realCatalog: Product[] = JSON.parse(readFileSync('static/catalog.json', 'utf-8'));
 const isWomens = (p: Product) => /women'?s/i.test(p.name);
 
-describe('exact search', () => {
-  it('matches every product whose name or category contains all query tokens', () => {
+describe('fuzzy search', () => {
+  it('matches every product whose name or category contains all query tokens (exact)', () => {
     const results = search('jacket', realCatalog);
     expect(results.length).toBeGreaterThan(0);
     expect(
@@ -17,15 +17,53 @@ describe('exact search', () => {
     ).toBe(true);
   });
 
-  it('does not tolerate typos (fuzzy matching removed)', () => {
-    // "jaket" is a one-character typo of "jacket"; exact matching surfaces nothing.
-    expect(search('jaket', realCatalog)).toEqual([]);
+  it('tolerates a 1-char typo (missing letter)', () => {
+    // "jaket" is "jacket" missing the 'c' — distance 1, within tolerance
+    const fuzzy = search('jaket', realCatalog);
+    const exact = search('jacket', realCatalog);
+    expect(fuzzy.length).toBeGreaterThan(0);
+    expect(fuzzy).toEqual(exact);
   });
 
-  it('does not expand synonyms (synonym matching removed)', () => {
-    // "womens" (no apostrophe) is not a literal token in any name/category — only the
-    // removed synonym layer used to surface the women's line for it.
-    expect(search('womens', realCatalog)).toEqual([]);
+  it('tolerates a 1-char typo (missing vowel)', () => {
+    // "flece" is "fleece" missing one 'e' — distance 1
+    const fuzzy = search('flece', realCatalog);
+    const exact = search('fleece', realCatalog);
+    expect(fuzzy.length).toBeGreaterThan(0);
+    expect(fuzzy).toEqual(exact);
+  });
+
+  it('tolerates a 2-char typo in an 8-char token (transposition)', () => {
+    // "trkeking" transposes 'e' and 'k' in "trekking" — distance 2, within tolerance for ≥8-char tokens
+    const results = search('trkeking', realCatalog);
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.every((p) => `${p.name} ${p.category}`.toLowerCase().includes('trekking'))).toBe(
+      true
+    );
+  });
+
+  it('tolerates a 1-char substitution', () => {
+    // "fleese" substitutes 'c' → 's' in "fleece" — distance 1
+    const fuzzy = search('fleese', realCatalog);
+    const exact = search('fleece', realCatalog);
+    expect(fuzzy.length).toBeGreaterThan(0);
+    expect(fuzzy).toEqual(exact);
+  });
+
+  it('returns the full catalogue for an empty query', () => {
+    expect(search('', realCatalog)).toEqual(realCatalog);
+  });
+
+  it('returns nothing for a query that is too far from any product', () => {
+    // "xyzzy" has no fuzzy match in the catalogue
+    expect(search('xyzzy', realCatalog)).toEqual([]);
+  });
+
+  it('"womens" (no apostrophe) matches the women\'s line via fuzzy match on "women"', () => {
+    // "womens" is within distance 1 of "women" (a word in women's product names)
+    const results = search('womens', realCatalog);
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.every(isWomens)).toBe(true);
   });
 });
 

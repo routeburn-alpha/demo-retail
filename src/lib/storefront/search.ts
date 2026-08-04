@@ -40,10 +40,30 @@ export function orderFacets(
     .map((entry) => entry.facetKey);
 }
 
+function levenshtein(a: string, b: string): number {
+  const m = a.length;
+  const n = b.length;
+  const dp: number[] = Array.from({ length: n + 1 }, (_, j) => j);
+  for (let i = 1; i <= m; i++) {
+    let prev = dp[0];
+    dp[0] = i;
+    for (let j = 1; j <= n; j++) {
+      const tmp = dp[j];
+      dp[j] = a[i - 1] === b[j - 1] ? prev : 1 + Math.min(prev, dp[j], dp[j - 1]);
+      prev = tmp;
+    }
+  }
+  return dp[n];
+}
+
 /**
- * Basic exact search: a product matches when every whitespace-separated query token is a
- * substring of its name or category (case-insensitive). No typo tolerance and no synonym
- * expansion — that richer matching is handled elsewhere.
+ * Fuzzy search: a product matches when every whitespace-separated query token either is an
+ * exact substring of the haystack or is within Levenshtein distance of at least one word in
+ * the product's name or category (case-insensitive).
+ *
+ * Tolerance by token length: < 4 chars → 0 (exact), 4–7 chars → 1, ≥ 8 chars → 2.
+ * The exact-substring pass runs first so tokens like "women's" still match literally even
+ * though apostrophe-splitting would otherwise separate them into "women" and "s".
  */
 export function search(query: string, catalog: Product[]): Product[] {
   const trimmed = query.trim();
@@ -52,6 +72,11 @@ export function search(query: string, catalog: Product[]): Product[] {
   const tokens = trimmed.toLowerCase().split(/\s+/).filter(Boolean);
   return catalog.filter((product) => {
     const haystack = `${product.name} ${product.category}`.toLowerCase();
-    return tokens.every((token) => haystack.includes(token));
+    const words = haystack.split(/\W+/).filter(Boolean);
+    return tokens.every((token) => {
+      if (haystack.includes(token)) return true;
+      const tolerance = token.length < 4 ? 0 : token.length < 8 ? 1 : 2;
+      return words.some((word) => levenshtein(token, word) <= tolerance);
+    });
   });
 }
