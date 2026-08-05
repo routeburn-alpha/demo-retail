@@ -15,7 +15,8 @@ const row: ProductRow = {
   collection: 'core',
   hidden: false,
   active: true,
-  createdAt: new Date('2026-01-01T00:00:00Z')
+  createdAt: new Date('2026-01-01T00:00:00Z'),
+  itemType: 'clothing'
 };
 
 describe('toProduct', () => {

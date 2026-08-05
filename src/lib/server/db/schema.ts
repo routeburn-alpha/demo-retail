@@ -10,6 +10,8 @@ import {
   index
 } from 'drizzle-orm/pg-core';
 
+export const itemTypeEnum = pgEnum('item_type', ['clothing', 'equipment']);
+
 /**
  * Two storefronts share one table. `core` is the visible Routeburn catalogue;
  * `elsewhere` is the hidden "Gear for the Long Way Out" collection, surfaced only
@@ -31,6 +33,7 @@ export const products = pgTable('products', {
   salePriceCents: integer('sale_price_cents'),
   department: departmentEnum('department').notNull().default('unisex'),
   collection: collectionEnum('collection').notNull().default('core'),
+  itemType: itemTypeEnum('item_type'),
   hidden: boolean('hidden').notNull().default(false),
   active: boolean('active').notNull().default(true),
   createdAt: timestamp('created_at').notNull().defaultNow()
