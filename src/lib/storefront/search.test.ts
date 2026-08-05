@@ -8,8 +8,8 @@ import type { FacetOrder } from '$lib/domain/facets';
 const realCatalog: Product[] = JSON.parse(readFileSync('static/catalog.json', 'utf-8'));
 const isWomens = (p: Product) => /women'?s/i.test(p.name);
 
-describe('exact search', () => {
-  it('matches every product whose name or category contains all query tokens', () => {
+describe('fuzzy search', () => {
+  it('matches products for an exact-token query', () => {
     const results = search('jacket', realCatalog);
     expect(results.length).toBeGreaterThan(0);
     expect(
@@ -17,15 +17,43 @@ describe('exact search', () => {
     ).toBe(true);
   });
 
-  it('does not tolerate typos (fuzzy matching removed)', () => {
-    // "jaket" is a one-character typo of "jacket"; exact matching surfaces nothing.
-    expect(search('jaket', realCatalog)).toEqual([]);
+  it('tolerates a one-character deletion typo (jaket → jacket)', () => {
+    const results = search('jaket', realCatalog);
+    expect(results.length).toBeGreaterThan(0);
+    results.forEach((p) =>
+      expect(`${p.name} ${p.category}`.toLowerCase()).toContain('jacket')
+    );
   });
 
-  it('does not expand synonyms (synonym matching removed)', () => {
-    // "womens" (no apostrophe) is not a literal token in any name/category — only the
-    // removed synonym layer used to surface the women's line for it.
-    expect(search('womens', realCatalog)).toEqual([]);
+  it('tolerates a transposition (jakcet → jacket)', () => {
+    const results = search('jakcet', realCatalog);
+    expect(results.length).toBeGreaterThan(0);
+    results.forEach((p) =>
+      expect(`${p.name} ${p.category}`.toLowerCase()).toContain('jacket')
+    );
+  });
+
+  it('tolerates a missing vowel (jcket → jacket)', () => {
+    const results = search('jcket', realCatalog);
+    expect(results.length).toBeGreaterThan(0);
+    results.forEach((p) =>
+      expect(`${p.name} ${p.category}`.toLowerCase()).toContain('jacket')
+    );
+  });
+
+  it('handles multi-token queries where one token has a typo (jackt down → down jacket)', () => {
+    const results = search('jackt down', realCatalog);
+    expect(results.length).toBeGreaterThan(0);
+    results.forEach((p) =>
+      expect(`${p.name} ${p.category}`.toLowerCase()).toContain('jacket')
+    );
+  });
+
+  it('fuzzy-matches "womens" to products with "women\'s" in their name', () => {
+    // "womens" is Levenshtein distance 1 from "women's" — fuzzy matching surfaces the women's line.
+    const results = search('womens', realCatalog);
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.every(isWomens)).toBe(true);
   });
 });
 
