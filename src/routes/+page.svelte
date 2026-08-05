@@ -139,7 +139,7 @@
       <p class="mb-3 text-xs uppercase tracking-[0.3em] text-bg/80">Autumn 2026</p>
       <h1 class="font-display text-3xl leading-tight sm:text-4xl md:text-5xl">Find your peak</h1>
       <p class="mt-4 max-w-md text-sm text-bg/90">
-        Layers, packs, and quiet tools for the country between the trailhead and the col.
+        Built for the long way home
       </p>
     </div>
   </section>
