@@ -40,18 +40,32 @@ export function orderFacets(
     .map((entry) => entry.facetKey);
 }
 
+export const SEARCH_SYNONYMS: Record<string, string[]> = {
+  jkt: ['jacket'],
+  goretex: ['shell', 'waterproof'],
+  rain: ['shell', 'waterproof']
+};
+
 /**
- * Basic exact search: a product matches when every whitespace-separated query token is a
- * substring of its name or category (case-insensitive). No typo tolerance and no synonym
- * expansion — that richer matching is handled elsewhere.
+ * Expand each token into a synonym group. Tokens with a SEARCH_SYNONYMS entry become that
+ * list; unrecognised tokens become a single-element list of themselves.
+ */
+export function expandTokens(tokens: string[]): string[][] {
+  return tokens.map((token) => SEARCH_SYNONYMS[token] ?? [token]);
+}
+
+/**
+ * Search with synonym expansion: a product matches when every query token (or one of its
+ * synonyms) is a substring of its name or category (case-insensitive).
  */
 export function search(query: string, catalog: Product[]): Product[] {
   const trimmed = query.trim();
   if (!trimmed) return catalog;
 
   const tokens = trimmed.toLowerCase().split(/\s+/).filter(Boolean);
+  const expanded = expandTokens(tokens);
   return catalog.filter((product) => {
     const haystack = `${product.name} ${product.category}`.toLowerCase();
-    return tokens.every((token) => haystack.includes(token));
+    return expanded.every((group) => group.some((token) => haystack.includes(token)));
   });
 }

@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
-import { orderFacets, search, type Product } from './search';
+import { orderFacets, search, expandTokens, type Product } from './search';
 import type { FacetOrder } from '$lib/domain/facets';
 
 // Pure logic over the REAL static catalogue (read from disk, same source the seed uses).
@@ -22,10 +22,27 @@ describe('exact search', () => {
     expect(search('jaket', realCatalog)).toEqual([]);
   });
 
-  it('does not expand synonyms (synonym matching removed)', () => {
-    // "womens" (no apostrophe) is not a literal token in any name/category — only the
-    // removed synonym layer used to surface the women's line for it.
+  it('does not match unmapped tokens via synonyms ("womens" is not in the synonym map)', () => {
+    // "womens" (no apostrophe) is not a literal token in any name/category and is not
+    // in SEARCH_SYNONYMS, so nothing matches.
     expect(search('womens', realCatalog)).toEqual([]);
+  });
+});
+
+describe('synonym expansion', () => {
+  it('"goretex rain jkt" returns shell jackets via synonym expansion', () => {
+    const results = search('goretex rain jkt', realCatalog);
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.every((p) => p.category === 'shell jacket')).toBe(true);
+  });
+
+  it('expandTokens replaces known abbreviations with their synonym groups', () => {
+    expect(expandTokens(['jkt'])).toEqual([['jacket']]);
+    expect(expandTokens(['goretex'])).toEqual([['shell', 'waterproof']]);
+  });
+
+  it('expandTokens passes through unknown tokens unchanged', () => {
+    expect(expandTokens(['jacket'])).toEqual([['jacket']]);
   });
 });
 
