@@ -1,12 +1,36 @@
 import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
-import { orderFacets, search, type Product } from './search';
+import { expandTokens, orderFacets, search, type Product } from './search';
 import type { FacetOrder } from '$lib/domain/facets';
 
 // Pure logic over the REAL static catalogue (read from disk, same source the seed uses).
 // No DB, no fetch, no mocks — allowed per ARCHITECTURE §4.1 (the search matcher has no I/O).
 const realCatalog: Product[] = JSON.parse(readFileSync('static/catalog.json', 'utf-8'));
 const isWomens = (p: Product) => /women'?s/i.test(p.name);
+
+describe('expandTokens', () => {
+  it('returns the original token plus its alias', () => {
+    expect(expandTokens(['jckt'])).toEqual(['jckt', 'jacket']);
+  });
+
+  it('expands multiple tokens including multi-word aliases', () => {
+    const result = expandTokens(['goretex', 'rain', 'jckt']);
+    expect(result).toContain('gore-tex');
+    expect(result).toContain('gore tex');
+    expect(result).toContain('jacket');
+  });
+
+  it('leaves tokens with no alias unchanged', () => {
+    expect(expandTokens(['rain'])).toEqual(['rain']);
+  });
+});
+
+describe('search with alias expansion', () => {
+  it('matches products with category "rain jacket" when searching "goretex rain jckt"', () => {
+    const results = search('goretex rain jckt', realCatalog);
+    expect(results.some((p) => p.category === 'rain jacket')).toBe(true);
+  });
+});
 
 describe('exact search', () => {
   it('matches every product whose name or category contains all query tokens', () => {
