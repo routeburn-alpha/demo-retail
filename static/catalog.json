@@ -75,10 +75,10 @@
   },
   {
     "id": "bag-001",
-    "name": "Hollowfill 0°C Sleeping Bag",
+    "name": "Hollowfill 0\u00b0C Sleeping Bag",
     "category": "sleeping bag",
     "price": 195,
-    "description": "Synthetic 0°C comfort-rated bag that keeps insulating when damp. Ideal for coastal multi-days.",
+    "description": "Synthetic 0\u00b0C comfort-rated bag that keeps insulating when damp. Ideal for coastal multi-days.",
     "imageUrl": "/products/bag-001.jpg",
     "department": "unisex"
   },
@@ -189,14 +189,5 @@
     "description": "Women's medium-support sports bra in moisture-wicking knit. Soft underband and racerback for full range on the trail.",
     "imageUrl": "/products/w-bra-001.jpg",
     "department": "womens"
-  },
-  {
-    "id": "rain-jacket-001",
-    "name": "Stormfront Gore-Tex Rain Jacket",
-    "category": "rain jacket",
-    "price": 349,
-    "description": "Ultralight Gore-Tex 3-layer rain jacket with sealed seams and adjustable hood.",
-    "imageUrl": "/products/rain-jacket-001.jpg",
-    "department": "mens"
   }
 ]
