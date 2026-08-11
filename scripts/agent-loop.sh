@@ -18,26 +18,35 @@
 # rest of the lifecycle.
 #
 # Usage:   scripts/agent-loop.sh
-# Env:     AGENT_NAME (from .claude/settings.local.json), STUDIO_PRODUCT (optional — restrict to one
-#          product; default: whole studio), POLL_INTERVAL (default 30s)
+# Env:     STUDIO_PRODUCT (optional — restrict to one product; default: whole studio),
+#          POLL_INTERVAL (default 30s). This agent's identity is NOT read from the environment;
+#          it comes from the worktree via `studio-poll.ts whoami`.
 
 set -euo pipefail
 
-AGENT_NAME="${AGENT_NAME:?AGENT_NAME not set — run inside an agent worktree (see worktree-init.sh)}"
 STUDIO_PRODUCT="${STUDIO_PRODUCT:-}"   # empty = whole studio
 POLL_INTERVAL="${POLL_INTERVAL:-30}"
 REPO_ROOT="$(git rev-parse --show-toplevel)"
-BRANCH="agent/$AGENT_NAME"
+
+# Who this agent is comes from the worktree, never from the shell: studio-poll resolves it from
+# .claude/settings.local.json and exits nonzero if this checkout cannot say who it is. Reading
+# $AGENT_NAME from the environment here is exactly what let an inherited export point a loop at
+# another studio's backlog under another agent's name. A disagreeing shell is reported by whoami.
+if ! IDENTITY="$(npx tsx "$REPO_ROOT/scripts/studio-poll.ts" whoami)"; then
+  echo "agent loop not started: this worktree has no usable identity (see worktree-init.sh)." >&2
+  exit 1
+fi
+read -r AGENT_NAME STUDIO_CODE <<< "$IDENTITY"
 
 SCOPE_DESC="${STUDIO_PRODUCT:-the whole studio}"
-echo "[$AGENT_NAME] agent loop started. Polling studio-ai ($SCOPE_DESC) every ${POLL_INTERVAL}s. Ctrl-C to stop."
+echo "[$AGENT_NAME] agent loop started. Polling studio-ai/$STUDIO_CODE ($SCOPE_DESC) every ${POLL_INTERVAL}s. Ctrl-C to stop."
 
 # Ask studio-ai for the next task to work on: resume this agent's in-progress task if any, else the
 # next backlog task. Prints "<product> <number>", or nothing when there is no work. STUDIO_PRODUCT,
 # if set, is passed as a scope filter.
 next_task() {
   local t
-  t="$(npx tsx "$REPO_ROOT/scripts/studio-poll.ts" resume "$AGENT_NAME" $STUDIO_PRODUCT 2>/dev/null || true)"
+  t="$(npx tsx "$REPO_ROOT/scripts/studio-poll.ts" resume $STUDIO_PRODUCT 2>/dev/null || true)"
   [ -z "$t" ] && t="$(npx tsx "$REPO_ROOT/scripts/studio-poll.ts" next $STUDIO_PRODUCT 2>/dev/null || true)"
   echo "$t"
 }
