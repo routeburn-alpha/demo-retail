@@ -16,16 +16,63 @@ describe('exact search', () => {
       results.every((p) => `${p.name} ${p.category}`.toLowerCase().includes('jacket'))
     ).toBe(true);
   });
+});
 
-  it('does not tolerate typos (fuzzy matching removed)', () => {
-    // "jaket" is a one-character typo of "jacket"; exact matching surfaces nothing.
-    expect(search('jaket', realCatalog)).toEqual([]);
+describe('fuzzy search', () => {
+  // Synthetic mini-catalog for algorithm-level assertions (no I/O — pure unit test).
+  const mini: Product[] = [
+    {
+      id: '1',
+      name: 'Trail Jacket',
+      category: 'shell jacket',
+      price: 200,
+      description: '',
+      imageUrl: ''
+    },
+    {
+      id: '2',
+      name: 'Gore-Tex Hardshell',
+      category: 'shell jacket',
+      price: 350,
+      description: '',
+      imageUrl: ''
+    },
+    {
+      id: '3',
+      name: 'Fleece Pullover',
+      category: 'midlayer',
+      price: 120,
+      description: '',
+      imageUrl: ''
+    }
+  ];
+
+  it('matches a 2-edit typo: "jckt" matches products with "jacket"', () => {
+    const results = search('jckt', mini);
+    expect(results.map((p) => p.id)).toContain('1');
   });
 
-  it('does not expand synonyms (synonym matching removed)', () => {
-    // "womens" (no apostrophe) is not a literal token in any name/category — only the
-    // removed synonym layer used to surface the women's line for it.
-    expect(search('womens', realCatalog)).toEqual([]);
+  it('matches across a hyphen: "goretex" matches "Gore-Tex"', () => {
+    const results = search('goretex', mini);
+    expect(results.map((p) => p.id)).toContain('2');
+  });
+
+  it('does not match when edit distance exceeds 2', () => {
+    // "fleec" is 1 edit from "fleece", but "pullovr" is 2 edits from "pullover" — both fine.
+    // "xxxxxx" has no close match anywhere.
+    expect(search('xxxxxx', mini)).toEqual([]);
+  });
+
+  it('tolerates a 1-edit typo against the real catalogue: "jaket" matches jacket products', () => {
+    const results = search('jaket', realCatalog);
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.every((p) => /jacket/i.test(`${p.name} ${p.category}`))).toBe(true);
+  });
+
+  it('"womens" (1 edit from "women\'s") surfaces the women\'s line', () => {
+    const results = search('womens', realCatalog);
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.every(isWomens)).toBe(true);
   });
 });
 
