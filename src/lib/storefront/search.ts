@@ -40,18 +40,38 @@ export function orderFacets(
     .map((entry) => entry.facetKey);
 }
 
+/** Iterative Levenshtein distance between two strings. */
+function levenshtein(a: string, b: string): number {
+  const m = a.length;
+  const n = b.length;
+  const dp: number[] = Array.from({ length: n + 1 }, (_, i) => i);
+  for (let i = 1; i <= m; i++) {
+    let prev = dp[0];
+    dp[0] = i;
+    for (let j = 1; j <= n; j++) {
+      const temp = dp[j];
+      dp[j] = a[i - 1] === b[j - 1] ? prev : 1 + Math.min(prev, dp[j], dp[j - 1]);
+      prev = temp;
+    }
+  }
+  return dp[n];
+}
+
 /**
- * Basic exact search: a product matches when every whitespace-separated query token is a
- * substring of its name or category (case-insensitive). No typo tolerance and no synonym
- * expansion — that richer matching is handled elsewhere.
+ * Fuzzy token-based search: a product matches when every whitespace-separated query token
+ * fuzzy-matches (Levenshtein distance ≤ 2) at least one whitespace-separated token in the
+ * product's name or category (case-insensitive). Handles hyphenated words (e.g. "gore-tex")
+ * as single tokens so "goretex" matches with distance 1.
  */
 export function search(query: string, catalog: Product[]): Product[] {
   const trimmed = query.trim();
   if (!trimmed) return catalog;
 
-  const tokens = trimmed.toLowerCase().split(/\s+/).filter(Boolean);
+  const queryTokens = trimmed.toLowerCase().split(/\s+/).filter(Boolean);
   return catalog.filter((product) => {
-    const haystack = `${product.name} ${product.category}`.toLowerCase();
-    return tokens.every((token) => haystack.includes(token));
+    const productTokens = `${product.name} ${product.category}`.toLowerCase().split(/\s+/);
+    return queryTokens.every((qt) =>
+      productTokens.some((pt) => levenshtein(qt, pt) <= 2)
+    );
   });
 }
