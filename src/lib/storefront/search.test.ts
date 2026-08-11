@@ -7,25 +7,42 @@ import type { FacetOrder } from '$lib/domain/facets';
 // No DB, no fetch, no mocks — allowed per ARCHITECTURE §4.1 (the search matcher has no I/O).
 const realCatalog: Product[] = JSON.parse(readFileSync('static/catalog.json', 'utf-8'));
 const isWomens = (p: Product) => /women'?s/i.test(p.name);
+const isJacket = (p: Product) => /jacket/i.test(`${p.name} ${p.category}`);
 
 describe('exact search', () => {
   it('matches every product whose name or category contains all query tokens', () => {
     const results = search('jacket', realCatalog);
     expect(results.length).toBeGreaterThan(0);
-    expect(
-      results.every((p) => `${p.name} ${p.category}`.toLowerCase().includes('jacket'))
-    ).toBe(true);
+    expect(results.every(isJacket)).toBe(true);
+  });
+});
+
+describe('fuzzy search (typo tolerance)', () => {
+  it('matches a 1-character typo: "jaket" surfaces jacket products', () => {
+    const results = search('jaket', realCatalog);
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.every(isJacket)).toBe(true);
   });
 
-  it('does not tolerate typos (fuzzy matching removed)', () => {
-    // "jaket" is a one-character typo of "jacket"; exact matching surfaces nothing.
-    expect(search('jaket', realCatalog)).toEqual([]);
+  it('matches an abbreviation within edit distance 2: "jckt" surfaces jacket products', () => {
+    const results = search('jckt', realCatalog);
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.every(isJacket)).toBe(true);
   });
 
-  it('does not expand synonyms (synonym matching removed)', () => {
-    // "womens" (no apostrophe) is not a literal token in any name/category — only the
-    // removed synonym layer used to surface the women's line for it.
-    expect(search('womens', realCatalog)).toEqual([]);
+  it('fuzzy-matches apostrophe variants: "womens" surfaces the women\'s line', () => {
+    const results = search('womens', realCatalog);
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.every(isWomens)).toBe(true);
+  });
+
+  it('still requires all tokens to match (conjunctive AND)', () => {
+    // "jaket" fuzzy-matches jackets; "down" exact-matches down jackets only
+    const results = search('jaket down', realCatalog);
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.every((p) => isJacket(p) && /down/i.test(`${p.name} ${p.category}`))).toBe(
+      true
+    );
   });
 });
 
