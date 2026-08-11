@@ -40,28 +40,18 @@ export function orderFacets(
     .map((entry) => entry.facetKey);
 }
 
-const ALIAS_MAP: Record<string, string[]> = {
-  jckt: ['jacket'],
-  goretex: ['gore-tex', 'gore tex']
-};
-
-/** Returns the original tokens plus all aliases for any token found in ALIAS_MAP. */
-export function expandTokens(tokens: string[]): string[] {
-  return tokens.flatMap((token) => [token, ...(ALIAS_MAP[token] ?? [])]);
-}
-
 /**
- * Alias-aware search: a product matches when the haystack contains at least one token from
- * the expanded token list (original + aliases). Empty query returns the full catalog.
+ * Basic exact search: a product matches when every whitespace-separated query token is a
+ * substring of its name or category (case-insensitive). No typo tolerance and no synonym
+ * expansion — that richer matching is handled elsewhere.
  */
 export function search(query: string, catalog: Product[]): Product[] {
   const trimmed = query.trim();
   if (!trimmed) return catalog;
 
   const tokens = trimmed.toLowerCase().split(/\s+/).filter(Boolean);
-  const expanded = expandTokens(tokens);
   return catalog.filter((product) => {
     const haystack = `${product.name} ${product.category}`.toLowerCase();
-    return expanded.some((token) => haystack.includes(token));
+    return tokens.every((token) => haystack.includes(token));
   });
 }

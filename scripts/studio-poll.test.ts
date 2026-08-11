@@ -14,9 +14,12 @@ const isTask = (r: { product: string; number: number } | null) =>
 
 describe.skipIf(!hasCredentials())('studio-poll (real studio-ai MCP over HTTP)', () => {
   it('callTool reaches the live MCP endpoint studio-wide', async () => {
+    // callTool throws on HTTP or JSON-RPC failure, so a returned payload already proves the
+    // endpoint answered. Assert the studio-wide listing shape — a `Product Name (code):`
+    // heading — rather than a specific studio slug, which varies with the connected studio.
     const text = await callTool('get_tasks', { status: 'backlog' });
     expect(typeof text).toBe('string');
-    expect(text).toContain('search-discovery');
+    expect(text).toMatch(/^\S[^()]*? \([a-z0-9_-]+\):\s*$/m);
   });
 
   it('nextBacklogTask (studio-wide) returns {product, number} or null', async () => {
