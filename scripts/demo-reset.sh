@@ -26,6 +26,7 @@
 #   scripts/demo-reset.sh --check               # verify only, change nothing (exit 1 if not baseline)
 #   scripts/demo-reset.sh --force               # proceed even if unrelated files are dirty
 #   scripts/demo-reset.sh --no-verify           # skip the test-based verification (faster)
+#   scripts/demo-reset.sh --no-studio           # leave the Studio idea/task state alone
 
 set -euo pipefail
 
@@ -54,6 +55,7 @@ SEARCH_FILES=(
 DO_SEED=0
 DO_CHECK=0
 DO_VERIFY=1
+DO_STUDIO=1
 FORCE=0
 DEMO_BRANCH=""
 
@@ -62,6 +64,7 @@ for arg in "$@"; do
     --seed)      DO_SEED=1 ;;
     --check)     DO_CHECK=1 ;;
     --no-verify) DO_VERIFY=0 ;;
+    --no-studio) DO_STUDIO=0 ;;
     --force)     FORCE=1 ;;
     -h|--help)   sed -n '2,26p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     --*)         echo "Unknown flag: $arg" >&2; exit 2 ;;
@@ -139,17 +142,29 @@ git fetch --quiet --tags origin
 # 1. Code: pin the branch to baseline, then force the search files fuzzy-free.
 # ---------------------------------------------------------------------------
 
-# Guard real work. Dirty search files are expected (that IS the demo output);
-# dirty anything-else is probably work someone cares about, so stop unless --force.
-if ! git diff --quiet || ! git diff --cached --quiet; then
-  UNRELATED="$(git diff --name-only HEAD -- . ':(exclude)src/lib/storefront/search.ts' ':(exclude)src/lib/storefront/search.test.ts')"
-  if [ -n "$UNRELATED" ] && [ "$FORCE" -eq 0 ]; then
-    echo "✗ Uncommitted changes outside the demo's search files:" >&2
+# Guard real work. Dirty search files are expected (that IS the demo output); dirty
+# anything-else is probably work someone cares about, so stop unless --force.
+#
+# Untracked files are checked too, not just tracked ones: `git diff` cannot see them,
+# but the `git clean -fd` below deletes them — so a tracked-only guard would let this
+# script silently destroy brand-new work it never warned about.
+EXCLUDE_SEARCH=(':(exclude)src/lib/storefront/search.ts' ':(exclude)src/lib/storefront/search.test.ts')
+UNRELATED="$(
+  {
+    git diff --name-only HEAD -- . "${EXCLUDE_SEARCH[@]}"
+    git ls-files --others --exclude-standard -- . "${EXCLUDE_SEARCH[@]}"
+  } | sort -u
+)"
+if [ -n "$UNRELATED" ]; then
+  if [ "$FORCE" -eq 0 ]; then
+    echo "✗ Uncommitted or untracked changes outside the demo's search files:" >&2
     echo "$UNRELATED" | sed 's/^/    /' >&2
-    echo "  These would be destroyed by 'git reset --hard'. Commit/stash them," >&2
-    echo "  or re-run with --force to discard them." >&2
+    echo "  These would be destroyed by 'git reset --hard' + 'git clean -fd'." >&2
+    echo "  Commit/stash them, or re-run with --force to discard them." >&2
     exit 1
   fi
+  echo "▸ Discarding unrelated changes on $CURRENT_BRANCH (--force)"
+elif ! git diff --quiet || ! git diff --cached --quiet; then
   echo "▸ Discarding demo changes on $CURRENT_BRANCH"
 fi
 
@@ -211,14 +226,23 @@ if ! verify_baseline; then
 fi
 
 # ---------------------------------------------------------------------------
-# 5. Studio (manual — the MCP store can't be reset from a shell).
+# 5. Studio: soft-delete the ideas/tasks this demo run created.
+#
+# Never fails the reset — demo-reset-studio.ts exits 0 and prints a manual
+# checklist when the token is missing or Studio is unreachable, so a flaky
+# network can't block a demo that is otherwise ready to run.
 # ---------------------------------------------------------------------------
+if [ "$DO_STUDIO" -eq 1 ]; then
+  echo "▸ Resetting Studio state…"
+  npx tsx scripts/demo-reset-studio.ts --apply || true
+else
+  echo "▸ Skipping Studio reset (--no-studio)"
+fi
+
 cat <<'EOF'
 
 ✓ Reset complete. Search is exact-match only — "jckt" and "jaket" return nothing.
 
-Still to do by hand (Studio task store is behind MCP, not git):
-  • Reset the fuzzy-search idea to Backlog and its tasks to backlog.
-  • Soft-delete any idea/task the last run created.
+Remaining manual check:
   • Confirm the routeburn Vercel production storefront (main) is unchanged.
 EOF
