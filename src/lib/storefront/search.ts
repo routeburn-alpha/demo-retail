@@ -40,8 +40,6 @@ export function orderFacets(
     .map((entry) => entry.facetKey);
 }
 
-const MAX_EDIT_DIST = 2;
-
 /** Levenshtein edit distance between two strings. */
 function levenshtein(a: string, b: string): number {
   const m = a.length, n = b.length;
@@ -59,11 +57,13 @@ function levenshtein(a: string, b: string): number {
 
 /**
  * Returns true when the token matches the haystack either as an exact substring or
- * within MAX_EDIT_DIST of any whitespace-separated word in the haystack.
+ * within edit distance of any whitespace-separated word in the haystack.
+ * Threshold: 2 edits for words longer than 5 characters, 1 for shorter — prevents
+ * single-character tokens from fuzzy-matching short abbreviations.
  */
 function tokenMatches(token: string, haystack: string): boolean {
   if (haystack.includes(token)) return true;
-  return haystack.split(/\s+/).some((word) => levenshtein(token, word) <= MAX_EDIT_DIST);
+  return haystack.split(/\s+/).some((word) => levenshtein(token, word) <= (word.length > 5 ? 2 : 1));
 }
 
 /**

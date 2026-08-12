@@ -58,6 +58,47 @@ describe("women's clothing line", () => {
   });
 });
 
+describe('acceptance criteria — spec-driven fuzzy matching', () => {
+  // Minimal synthetic catalog for the goretex test (real catalog has no Gore-Tex products).
+  const syntheticCatalog: Product[] = [
+    {
+      id: 'gore-001',
+      name: 'Gore-Tex Rain Jacket',
+      category: 'rain jacket',
+      price: 400,
+      description: '',
+      imageUrl: ''
+    },
+    ...realCatalog
+  ];
+
+  it('"goretex rain jckt" finds gore-tex rain jackets', () => {
+    const results = search('goretex rain jckt', syntheticCatalog);
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.every((p) => /gore.?tex/i.test(p.name) && /rain/i.test(`${p.name} ${p.category}`))).toBe(true);
+  });
+
+  it('"shell jckt" finds shell jackets', () => {
+    const results = search('shell jckt', realCatalog);
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.every((p) => /shell/i.test(`${p.name} ${p.category}`))).toBe(true);
+  });
+
+  it('"fleese" (typo) finds fleece items', () => {
+    const results = search('fleese', realCatalog);
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.every((p) => /fleece/i.test(`${p.name} ${p.category}`))).toBe(true);
+  });
+
+  it('"x" does not match shell products (no false positives for single-char tokens)', () => {
+    const shellIds = new Set(
+      realCatalog.filter((p) => /shell/i.test(`${p.name} ${p.category}`)).map((p) => p.id)
+    );
+    const results = search('x', realCatalog);
+    expect(results.some((p) => shellIds.has(p.id))).toBe(false);
+  });
+});
+
 // Pure unit test — orderFacets has no I/O (it receives the ordering config as input),
 // so a unit test is allowed per ARCHITECTURE §4.1. No DB, no mocks.
 
