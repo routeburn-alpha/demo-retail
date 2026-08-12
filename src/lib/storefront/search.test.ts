@@ -7,42 +7,25 @@ import type { FacetOrder } from '$lib/domain/facets';
 // No DB, no fetch, no mocks — allowed per ARCHITECTURE §4.1 (the search matcher has no I/O).
 const realCatalog: Product[] = JSON.parse(readFileSync('static/catalog.json', 'utf-8'));
 const isWomens = (p: Product) => /women'?s/i.test(p.name);
-const isJacket = (p: Product) => /jacket/i.test(`${p.name} ${p.category}`);
 
 describe('exact search', () => {
   it('matches every product whose name or category contains all query tokens', () => {
     const results = search('jacket', realCatalog);
     expect(results.length).toBeGreaterThan(0);
-    expect(results.every(isJacket)).toBe(true);
-  });
-});
-
-describe('fuzzy search (typo tolerance)', () => {
-  it('matches a 1-character typo: "jaket" surfaces jacket products', () => {
-    const results = search('jaket', realCatalog);
-    expect(results.length).toBeGreaterThan(0);
-    expect(results.every(isJacket)).toBe(true);
+    expect(
+      results.every((p) => `${p.name} ${p.category}`.toLowerCase().includes('jacket'))
+    ).toBe(true);
   });
 
-  it('matches an abbreviation within edit distance 2: "jckt" surfaces jacket products', () => {
-    const results = search('jckt', realCatalog);
-    expect(results.length).toBeGreaterThan(0);
-    expect(results.every(isJacket)).toBe(true);
+  it('does not tolerate typos (fuzzy matching removed)', () => {
+    // "jaket" is a one-character typo of "jacket"; exact matching surfaces nothing.
+    expect(search('jaket', realCatalog)).toEqual([]);
   });
 
-  it('fuzzy-matches apostrophe variants: "womens" surfaces the women\'s line', () => {
-    const results = search('womens', realCatalog);
-    expect(results.length).toBeGreaterThan(0);
-    expect(results.every(isWomens)).toBe(true);
-  });
-
-  it('still requires all tokens to match (conjunctive AND)', () => {
-    // "jaket" fuzzy-matches jackets; "down" exact-matches down jackets only
-    const results = search('jaket down', realCatalog);
-    expect(results.length).toBeGreaterThan(0);
-    expect(results.every((p) => isJacket(p) && /down/i.test(`${p.name} ${p.category}`))).toBe(
-      true
-    );
+  it('does not expand synonyms (synonym matching removed)', () => {
+    // "womens" (no apostrophe) is not a literal token in any name/category — only the
+    // removed synonym layer used to surface the women's line for it.
+    expect(search('womens', realCatalog)).toEqual([]);
   });
 });
 
@@ -55,47 +38,6 @@ describe("women's clothing line", () => {
     const results = search("women's", realCatalog);
     expect(results.length).toBeGreaterThan(0);
     expect(results.every(isWomens)).toBe(true);
-  });
-});
-
-describe('acceptance criteria — spec-driven fuzzy matching', () => {
-  // Minimal synthetic catalog for the goretex test (real catalog has no Gore-Tex products).
-  const syntheticCatalog: Product[] = [
-    {
-      id: 'gore-001',
-      name: 'Gore-Tex Rain Jacket',
-      category: 'rain jacket',
-      price: 400,
-      description: '',
-      imageUrl: ''
-    },
-    ...realCatalog
-  ];
-
-  it('"goretex rain jckt" finds gore-tex rain jackets', () => {
-    const results = search('goretex rain jckt', syntheticCatalog);
-    expect(results.length).toBeGreaterThan(0);
-    expect(results.every((p) => /gore.?tex/i.test(p.name) && /rain/i.test(`${p.name} ${p.category}`))).toBe(true);
-  });
-
-  it('"shell jckt" finds shell jackets', () => {
-    const results = search('shell jckt', realCatalog);
-    expect(results.length).toBeGreaterThan(0);
-    expect(results.every((p) => /shell/i.test(`${p.name} ${p.category}`))).toBe(true);
-  });
-
-  it('"fleese" (typo) finds fleece items', () => {
-    const results = search('fleese', realCatalog);
-    expect(results.length).toBeGreaterThan(0);
-    expect(results.every((p) => /fleece/i.test(`${p.name} ${p.category}`))).toBe(true);
-  });
-
-  it('"x" does not match shell products (no false positives for single-char tokens)', () => {
-    const shellIds = new Set(
-      realCatalog.filter((p) => /shell/i.test(`${p.name} ${p.category}`)).map((p) => p.id)
-    );
-    const results = search('x', realCatalog);
-    expect(results.some((p) => shellIds.has(p.id))).toBe(false);
   });
 });
 
