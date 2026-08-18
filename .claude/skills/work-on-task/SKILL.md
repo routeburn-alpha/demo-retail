@@ -31,7 +31,9 @@ This marks the task `inProgress` and assigns it to the registered agent (registe
 **standards** (`standards/` — these are the gate). Show task title and acceptance criteria.
 
 ### 2. Sync environment
-Work only ever happens on the agent branch (`agent/$AGENT_NAME`).
+Work only ever happens on the agent branch (`agent/$AGENT_NAME`), where `$AGENT_NAME` is resolved
+from the worktree by `npx tsx scripts/studio-poll.ts whoami` — never read out of the environment,
+which may carry another worktree's (equally valid, equally registered) agent name.
 1. `git rev-parse --abbrev-ref HEAD` must equal `agent/$AGENT_NAME`. If it's a `{id}-…` PR branch
    or anything else, **abort** — a leftover branch means a previous session didn't finish cleanly.
 2. No unfinished submitted work from **this agent**: call `get_tasks(status: "review")` (studio-wide)

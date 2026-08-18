@@ -16,9 +16,14 @@ Find the studio-ai task this agent moved to `inProgress` (`get_tasks` with `stat
 `owner: me`).
 - **None found:** warn that pushing without a task bypasses the SDLC; ask to continue or pick a
   task. If continuing, skip the standards confirmation in Step 4.
-- **Branch:** `git rev-parse --abbrev-ref HEAD` must be the agent branch (`agent/$AGENT_NAME`). If
-  HEAD is already a `{id}-…` PR branch, **abort** — ask whether the prior PR should merge/close
-  first. Step 3 branches off the agent branch, not off another PR branch.
+- **Identity:** resolve this agent's name from the worktree, never from the shell —
+  `AGENT_NAME=$(npx tsx scripts/studio-poll.ts whoami | cut -d' ' -f1)`. That command reads
+  `.claude/settings.local.json` and exits nonzero if the settings file and the checkout disagree.
+  Do **not** read `$AGENT_NAME` out of the environment: a value inherited from another worktree's
+  shell is itself a registered agent name, so it is obeyed silently instead of erroring.
+- **Branch:** `git rev-parse --abbrev-ref HEAD` must be the agent branch (`agent/$AGENT_NAME`,
+  resolved as above). If HEAD is already a `{id}-…` PR branch, **abort** — ask whether the prior PR
+  should merge/close first. Step 3 branches off the agent branch, not off another PR branch.
 
 ### 2. Run the pipeline
 Rebase on main, then run the full gate — all three must be green:
@@ -51,7 +56,10 @@ git checkout -b "$PR_BRANCH" && git push -u origin "$PR_BRANCH"
 gh pr create --base main --head "$PR_BRANCH" --title "$TASK_ID <description>" --body "Task: <product> #<taskNumber>"
 ```
 Record the PR URL, then link it to the studio task with `submit_for_review` (moves the task to
-`review` and assigns reviewers on the PR).
+`review` and assigns reviewers on the PR). Pass **`agentName` explicitly**, using the name resolved
+in Step 1: the tool's documented auto-fill reads the ambient `AGENT_NAME`, which is the value that
+leaks between worktrees — letting it auto-fill records the work against whichever agent's shell
+happened to launch the session.
 
 ### 5. Review gate — the ONLY human interaction
 Present together, as a status report (not a question at the keyboard user):
