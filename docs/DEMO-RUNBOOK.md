@@ -38,7 +38,7 @@ Rotating candidates between runs keeps it from feeling canned and avoids "alread
 
 **🖥️ DO**
 ```bash
-git checkout agent/arcterx && git fetch origin main && git reset --hard origin/main
+git checkout agent/arcteryx && git fetch origin main && git reset --hard origin/main
 npm run demo:reset -- --seed        # reseed catalogue + force the low-stock spread
 git status --porcelain              # expect: empty
 ```

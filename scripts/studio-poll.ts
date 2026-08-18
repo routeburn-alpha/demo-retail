@@ -74,6 +74,29 @@ export function hasCredentials(): boolean {
   return Boolean(credential('STUDIO_AI_TOKEN'));
 }
 
+/**
+ * Whether this checkout has a settings file to be bound by at all.
+ *
+ * Absent on CI and in a fresh clone, where the file is gitignored. The tests that assert the
+ * binding skip on that (standards/no-mocks.md — skip, never fake), and they ask here rather than
+ * reading the file themselves: a gitignored file must never be a precondition for the suite
+ * *loading*, only for the handful of assertions that need one.
+ */
+export function hasWorktreeSettings(): boolean {
+  return settings().env !== undefined;
+}
+
+/**
+ * What this worktree's settings file configures for `key`, ignoring the ambient shell entirely.
+ *
+ * `credential()` is the resolved answer; this is one of its two inputs, exported so a test can
+ * assert which input won without re-implementing the file lookup. Undefined — never a throw —
+ * when there is no settings file, so it is safe to call before `hasWorktreeSettings()` is known.
+ */
+export function configuredCredential(key: CredentialKey): string | undefined {
+  return settings().env?.[key];
+}
+
 /** The agent this worktree is bound to. Exported so the binding itself is testable. */
 export function agentName(): string {
   return credential('AGENT_NAME') ?? 'unknown';
@@ -123,9 +146,9 @@ function checkoutAgentHere(): string | undefined {
  * Stop when the resolved agent name disagrees with the checkout it is running in.
  *
  * This is the backstop that makes a leak impossible to obey rather than merely unlikely: the studio
- * has `arcterx`, `arcteryx` and `prana` all registered, so a name inherited from another worktree's
- * shell is a *valid* agent and nothing downstream rejects it. Two independent witnesses — the
- * settings file and the checkout — must agree, or nothing runs.
+ * has `arcteryx` and `prana` both registered, so a name inherited from another worktree's shell is
+ * a *valid* agent and nothing downstream rejects it. Two independent witnesses — the settings file
+ * and the checkout — must agree, or nothing runs.
  */
 export function assertAgentMatchesCheckout(): void {
   const configured = agentName();

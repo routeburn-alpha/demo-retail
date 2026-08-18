@@ -1,8 +1,8 @@
-import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
 import {
   agentName,
   studioCode,
+  configuredCredential,
   conflictingCredentials,
   callTool,
   nextBacklogTask,
@@ -11,7 +11,8 @@ import {
   tasksStudioWide,
   checkoutAgent,
   assertAgentMatchesCheckout,
-  hasCredentials
+  hasCredentials,
+  hasWorktreeSettings
 } from './studio-poll';
 
 // Integration tests — these hit the REAL studio-ai MCP HTTP endpoint (no mocks),
@@ -25,12 +26,14 @@ const isTask = (r: { product: string; number: number } | null) =>
   r === null ||
   (typeof r.product === 'string' && r.product.length > 0 && Number.isInteger(r.number) && r.number > 0);
 
-const settings = JSON.parse(readFileSync('.claude/settings.local.json', 'utf8')).env;
+/** The agent this worktree is bound to by its settings file; undefined when there is no such file. */
+const configuredAgent = configuredCredential('AGENT_NAME');
 
-/** Run `fn` with `process.env[key]` forced to a hostile value, then restore. */
-function withAmbient(key: string, value: string, fn: () => void): void {
+/** Run `fn` with `process.env[key]` forced to `value` — or unset, when undefined — then restore. */
+function withAmbient(key: string, value: string | undefined, fn: () => void): void {
   const previous = process.env[key];
-  process.env[key] = value;
+  if (value === undefined) delete process.env[key];
+  else process.env[key] = value;
   try {
     fn();
   } finally {
@@ -43,10 +46,10 @@ function withAmbient(key: string, value: string, fn: () => void): void {
 // which studio and agent this checkout is bound to; a shell export must never silently rebind it.
 // This is the binding that agent-loop.sh runs on, so a stray ambient value would send an agent at
 // another studio's backlog under another agent's name.
-describe('worktree settings beat ambient env', () => {
+describe.skipIf(!hasWorktreeSettings())('worktree settings beat ambient env', () => {
   it('resolves the agent name from settings.local.json even when the shell exports another', () => {
     withAmbient('AGENT_NAME', 'ambient-imposter', () => {
-      expect(agentName()).toBe(settings.AGENT_NAME);
+      expect(agentName()).toBe(configuredAgent);
     });
   });
 
@@ -63,7 +66,7 @@ describe('worktree settings beat ambient env', () => {
     });
     // A shell that agrees is not a conflict. Asserted by forcing agreement rather than by reading
     // the ambient shell, which on a developer machine may legitimately export anything at all.
-    withAmbient('AGENT_NAME', settings.AGENT_NAME, () => {
+    withAmbient('AGENT_NAME', configuredAgent, () => {
       expect(conflictingCredentials()).not.toContain('AGENT_NAME');
     });
   });
@@ -71,7 +74,7 @@ describe('worktree settings beat ambient env', () => {
 
 // The binding canary, asserted at its source rather than by string-matching a live response body:
 // the token itself names the studio it belongs to.
-describe('this worktree is bound to the search-discovery studio', () => {
+describe.skipIf(!hasWorktreeSettings())('this worktree is bound to the search-discovery studio', () => {
   it('the configured token carries the expected studioCode claim', () => {
     expect(studioCode()).toBe('search-discovery');
   });
@@ -94,14 +97,15 @@ describe('the checkout says who it is, independently of any configuration', () =
   });
 
   it('distinguishes the near-miss names that made this bug silent', () => {
-    // `arcteryx`, `arcterx` and `prana` are all real registered agents, so a leaked value is a
-    // VALID name — nothing downstream rejects it. The checkout is what tells them apart.
+    // `arcteryx` and `prana` are both real registered agents, so a leaked value is a VALID name —
+    // nothing downstream rejects it. The checkout is what tells them apart. (`arcterx`, the typo
+    // that made this concrete, was deregistered on 2026-08-18; a near-miss pair still ships.)
     expect(checkoutAgent('agent/arcterx', 'demo-retail-arcterx', 'demo-retail')).not.toBe('arcteryx');
   });
 });
 
 // Real git + real settings in this worktree — the invariant the whole task is about.
-describe('this checkout and its settings agree on who this agent is', () => {
+describe.skipIf(!hasWorktreeSettings())('this checkout and its settings agree on who this agent is', () => {
   it('does not throw for the worktree it is running in', () => {
     expect(() => assertAgentMatchesCheckout()).not.toThrow();
   });
