@@ -34,7 +34,7 @@ function settings(): { env?: Record<string, string> } {
   }
 }
 
-function mcpUrl(): string {
+export function mcpUrl(): string {
   try {
     const cfg = JSON.parse(readFileSync(join(REPO_ROOT, '.mcp.json'), 'utf8'));
     return cfg.mcpServers['studio-ai'].url as string;
@@ -73,7 +73,16 @@ function token(): string {
   return t;
 }
 
-/** Whether a studio-ai token is resolvable — lets integration tests skip (not mock) when absent. */
+/**
+ * Whether a studio-ai token is resolvable — lets integration tests skip (not mock) when absent.
+ *
+ * Deliberately a **presence** check, not a validity check (platform #1124). Asking the server
+ * whether the token still works would cost a network call at collection time and, worse, would turn
+ * a rejected credential into a silent skip — the exact failure mode #1114 exists to eliminate, and
+ * the opposite of what ARCHITECTURE.md §5 asks for (a missing secret must fail the job, not quietly
+ * pass). So an invalid token still runs the suite and still fails it; only the diagnosis is made
+ * instant, by studioErrorMessage() naming the credential instead of reporting a bare HTTP status.
+ */
 export function hasCredentials(): boolean {
   return Boolean(credential('STUDIO_AI_TOKEN'));
 }
@@ -124,12 +133,85 @@ export function agentName(): string {
  * not a readable JWT — callers decide whether that is fatal.
  */
 export function studioCode(): string | undefined {
+  return tokenClaims()?.studioCode;
+}
+
+/** The claims of the resolved token that are safe to name in an error: never the token itself. */
+export interface TokenClaims {
+  studioCode?: string;
+  /** Expiry, in seconds since the epoch — the JWT `exp` convention. */
+  exp?: number;
+}
+
+/**
+ * The resolved token's own claims, or undefined when there is no token or it is not a readable JWT.
+ *
+ * Only `studioCode` and `exp` are surfaced. Both are safe to print, and between them they answer the
+ * two questions a rejection raises: was this token for the right studio, and has it simply run out?
+ */
+export function tokenClaims(): TokenClaims | undefined {
   try {
     const payload = JSON.parse(Buffer.from(token().split('.')[1], 'base64url').toString());
-    return typeof payload.studioCode === 'string' ? payload.studioCode : undefined;
+    return {
+      studioCode: typeof payload.studioCode === 'string' ? payload.studioCode : undefined,
+      exp: typeof payload.exp === 'number' ? payload.exp : undefined
+    };
   } catch {
     return undefined;
   }
+}
+
+/**
+ * A studio-ai call refused because the credential was rejected, not because the work was absent.
+ *
+ * Its own type because the poll paths deliberately swallow failures — to agent-loop.sh, "no tasks"
+ * and "endpoint unreachable" are both just "nothing to pick up". A dead token must not land in that
+ * bucket, or the loop idles politely forever against a credential nobody has noticed expired.
+ */
+export class CredentialRejected extends Error {}
+
+/** Statuses that mean "your credential was refused" rather than "the call went wrong". */
+const REJECTED_CREDENTIAL = new Set([401, 403]);
+
+/**
+ * Turn a failed studio-ai response into a message that names its actual cause.
+ *
+ * A stale token used to surface as `studio-ai HTTP 401`, which reads as a regression in whatever
+ * change is under test — it cost a real debugging detour on 2026-08-18. Pure: status, body and
+ * claims are all passed in, so this is I/O-free and testable without a service.
+ *
+ * The server body is deliberately dropped for credential failures: it can quote the rejected
+ * credential back, and nothing here may print a token value. Every other status keeps it.
+ */
+export function studioErrorMessage(status: number, body: string, claims?: TokenClaims): string {
+  if (!REJECTED_CREDENTIAL.has(status)) return `studio-ai HTTP ${status}: ${body}`;
+
+  let detail: string;
+  if (!claims) {
+    detail = 'The configured token could not be read as a JWT.';
+  } else {
+    const studio = claims.studioCode ? `opens studio "${claims.studioCode}"` : 'names no studio';
+    const expiry =
+      claims.exp === undefined
+        ? 'and carries no expiry, so it was likely revoked'
+        : claims.exp * 1000 < Date.now()
+          ? `and expired on ${new Date(claims.exp * 1000).toISOString()}`
+          : `and is valid until ${new Date(claims.exp * 1000).toISOString()}, so it was likely revoked ` +
+            `or issued for a different studio`;
+    detail = `The token ${studio} ${expiry}.`;
+  }
+
+  return (
+    `studio-ai rejected the configured STUDIO_AI_TOKEN (HTTP ${status}). This is a credential ` +
+    `problem, not a failure of the code under test. ${detail} Refresh it in ` +
+    `.claude/settings.local.json, then re-run.`
+  );
+}
+
+/** The error a failed studio-ai response should raise — typed so callers can tell the causes apart. */
+export function studioError(status: number, body: string, claims?: TokenClaims): Error {
+  const message = studioErrorMessage(status, body, claims);
+  return REJECTED_CREDENTIAL.has(status) ? new CredentialRejected(message) : new Error(message);
 }
 
 /**
@@ -245,7 +327,7 @@ export async function callTool(name: string, args: Record<string, unknown>): Pro
       params: { name, arguments: args }
     })
   });
-  if (!res.ok) throw new Error(`studio-ai HTTP ${res.status}: ${await res.text()}`);
+  if (!res.ok) throw studioError(res.status, await res.text(), tokenClaims());
 
   // The response is a single SSE event; the JSON-RPC payload is on the `data:` line(s).
   const body = await res.text();
@@ -325,7 +407,8 @@ async function backlogTasks(product?: string): Promise<StudioTask[]> {
       return tasksForProduct(text, product);
     }
     return tasksStudioWide(await callTool('get_tasks', { status: 'backlog' }));
-  } catch {
+  } catch (e) {
+    if (e instanceof CredentialRejected) throw e; // a dead token is not "no tasks"
     return []; // no tasks / unreachable → nothing to pick up
   }
 }
@@ -354,7 +437,8 @@ export async function resumeTask(product?: string): Promise<StudioTask | null> {
       return tasksForProduct(text, product, agent)[0] ?? null;
     }
     return tasksStudioWide(await callTool('get_tasks', { status: 'inProgress' }), agent)[0] ?? null;
-  } catch {
+  } catch (e) {
+    if (e instanceof CredentialRejected) throw e; // a dead token is not "no work to resume"
     return null;
   }
 }
