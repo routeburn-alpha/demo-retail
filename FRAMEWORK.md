@@ -93,7 +93,9 @@ The same SDLC scales to **many isolated agents pulling from one backlog**, with 
 scheduler. See [`docs/lineage.md`](docs/lineage.md) and:
 
 - [`scripts/worktree-init.sh`](scripts/worktree-init.sh) — each agent is a `git worktree` with its
-  own identity (`AGENT_NAME`, `AGENT_PORT`) and an isolated dev-server port.
+  own identity (`AGENT_NAME`, `AGENT_PORT`) and an isolated dev-server port. Both are read back
+  through [`scripts/studio-poll.ts`](scripts/studio-poll.ts) (`whoami` / `port`), never from the
+  ambient shell — an inherited export otherwise rebinds an agent to a neighbour's identity or port.
 - [`scripts/agent-loop.sh`](scripts/agent-loop.sh) — an outside-the-session poll loop that claims
   one backlog task, launches a session, and idles otherwise. **Note:** this script polls an
   earlier file-based `backlog/` store; the task store has since moved to studio-ai over MCP, so the

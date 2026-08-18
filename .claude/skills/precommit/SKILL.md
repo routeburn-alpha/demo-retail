@@ -65,8 +65,9 @@ happened to launch the session.
 Present together, as a status report (not a question at the keyboard user):
 1. **PR link** — for the diff review.
 2. **Diff stat** — files changed + one-line description, with the task id.
-3. **Local URLs (required for UI changes)** — e.g. `http://localhost:$AGENT_PORT/...` for each
-   state that matters.
+3. **Local URLs (required for UI changes)** — e.g. `http://localhost:$PORT/...` for each state that
+   matters, where `PORT="$(npx tsx scripts/studio-poll.ts port)"`. Resolve it that way rather than
+   from `$AGENT_PORT`, which the shell may have carried in from another worktree.
 
 Say "Awaiting review on the PR." Wait for explicit approval before merging. On feedback: make
 changes, `git commit --amend --no-edit`, re-run Step 2, `git push --force-with-lease`, re-present.

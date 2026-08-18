@@ -94,9 +94,16 @@ npm run test 2>&1 | tee logs/test-full.log
 Fix anything that broke.
 
 ### 9. Run the change end-to-end
-Tests aren't enough for UI. Open the affected route at `http://localhost:$AGENT_PORT` and drive the
-golden path. For scripts, run them with real arguments. If you can't execute the change here
-(missing keys, paid service), say so at the review gate.
+Tests aren't enough for UI. Resolve the dev-server port from the **worktree**, never from the shell —
+`$AGENT_PORT` leaks between worktrees exactly as `$AGENT_NAME` did, and a leaked one lets you verify
+a change against another agent's dev server:
+```bash
+PORT="$(npx tsx scripts/studio-poll.ts port)"   # fails loudly if another worktree claims it
+npm run dev -- --port "$PORT"
+```
+Open the affected route at `http://localhost:$PORT` and drive the golden path. For scripts, run them
+with real arguments. If you can't execute the change here (missing keys, paid service), say so at
+the review gate.
 
 ### 10. Ship
 Invoke `/precommit`. The review gate inside it is the one human stop. Don't wait for the user before
