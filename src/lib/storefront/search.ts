@@ -30,18 +30,62 @@ export function orderFacets(
     .map((entry) => entry.facetKey);
 }
 
+function levenshtein(a: string, b: string): number {
+  const m = a.length;
+  const n = b.length;
+  // Use two-row rolling array for memory efficiency.
+  let prev = Array.from({ length: n + 1 }, (_, j) => j);
+  let curr = new Array<number>(n + 1);
+  for (let i = 1; i <= m; i++) {
+    curr[0] = i;
+    for (let j = 1; j <= n; j++) {
+      curr[j] =
+        a[i - 1] === b[j - 1]
+          ? prev[j - 1]
+          : 1 + Math.min(prev[j], curr[j - 1], prev[j - 1]);
+    }
+    [prev, curr] = [curr, prev];
+  }
+  return prev[n];
+}
+
+const FUZZY_THRESHOLD = 2;
+
 /**
- * Basic exact search: a product matches when every whitespace-separated query token is a
- * substring of its name or category (case-insensitive). No typo tolerance and no synonym
- * expansion — that richer matching is handled elsewhere.
+ * Fuzzy search: a product matches when every query token is within `FUZZY_THRESHOLD` edit
+ * distance of at least one whitespace-delimited word in its name or category.
+ */
+export function fuzzySearch(query: string, catalog: Product[]): Product[] {
+  const trimmed = query.trim();
+  if (!trimmed) return catalog;
+
+  const tokens = trimmed.toLowerCase().split(/\s+/).filter(Boolean);
+  return catalog.filter((product) => {
+    const words = `${product.name} ${product.category}`.toLowerCase().split(/\s+/).filter(Boolean);
+    return tokens.every((token) => words.some((word) => levenshtein(token, word) <= FUZZY_THRESHOLD));
+  });
+}
+
+/**
+ * Search the catalog for products matching the query. Exact token-substring matching runs first;
+ * when exact results are ≤ 3, fuzzy matching fills in additional results (appended after exact
+ * matches to preserve exact-match-first ranking).
  */
 export function search(query: string, catalog: Product[]): Product[] {
   const trimmed = query.trim();
   if (!trimmed) return catalog;
 
   const tokens = trimmed.toLowerCase().split(/\s+/).filter(Boolean);
-  return catalog.filter((product) => {
+  const exactResults = catalog.filter((product) => {
     const haystack = `${product.name} ${product.category}`.toLowerCase();
     return tokens.every((token) => haystack.includes(token));
   });
+
+  if (exactResults.length > 3) return exactResults;
+
+  // Fuzzy fallback: append fuzzy-only matches after the exact matches.
+  const fuzzyResults = fuzzySearch(query, catalog);
+  const exactIds = new Set(exactResults.map((p) => p.id));
+  const additionalFuzzy = fuzzyResults.filter((p) => !exactIds.has(p.id));
+  return [...exactResults, ...additionalFuzzy];
 }
