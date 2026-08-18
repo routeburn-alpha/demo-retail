@@ -45,11 +45,17 @@ else
 fi
 
 # Bake the agent's identity into the worktree so every Claude Code session and shell inherits it.
+#
+# WORKTREE_AGENT_NAME duplicates AGENT_NAME on purpose. Claude Code's settings `env` fills variables
+# that are unset but cannot override one inherited from the launching shell, so AGENT_NAME — which
+# every agent terminal already exports — stays whatever opened the session. .mcp.json interpolates
+# X-Agent-Name from the worktree-only name instead, which no shell sets. Keep them in step.
 mkdir -p "$WORKTREE_DIR/.claude"
 cat > "$WORKTREE_DIR/.claude/settings.local.json" <<JSON
 {
   "env": {
     "AGENT_NAME": "$AGENT_NAME",
+    "WORKTREE_AGENT_NAME": "$AGENT_NAME",
     "AGENT_PORT": "$AGENT_PORT"
   }
 }

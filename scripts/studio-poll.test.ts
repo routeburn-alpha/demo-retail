@@ -11,6 +11,9 @@ import {
   tasksStudioWide,
   checkoutAgent,
   assertAgentMatchesCheckout,
+  mcpAgentTemplate,
+  resolveMcpAgent,
+  settingsEnv,
   hasCredentials,
   hasWorktreeSettings
 } from './studio-poll';
@@ -114,6 +117,52 @@ describe.skipIf(!hasWorktreeSettings())('this checkout and its settings agree on
     withAmbient('AGENT_NAME', 'arcteryx', () => {
       // Settings still win, so this must NOT throw — the ambient value never reaches the check.
       expect(() => assertAgentMatchesCheckout()).not.toThrow();
+    });
+  });
+});
+
+// The MCP header is the one identity channel resolved BEFORE any code in this repo runs: Claude
+// Code interpolates .mcp.json at session start, so studio-poll.ts cannot intercept it the way it
+// intercepts every other path. `work_on_next_task` has no `agentName` parameter either (unlike
+// submit_for_review / release_task), so a header carrying a leaked-but-registered name records the
+// claim against the wrong agent with no way to correct it afterwards. Assert on the value the
+// header will actually carry, not on what the settings file says in isolation.
+describe.skipIf(!hasWorktreeSettings())('the MCP X-Agent-Name header is bound to the worktree', () => {
+  it('resolves to this worktree even when the launching shell exported another agent', () => {
+    withAmbient('AGENT_NAME', 'arcteryx', () => {
+      expect(resolveMcpAgent(mcpAgentTemplate(), settingsEnv(), process.env)).toBe(configuredAgent);
+    });
+  });
+});
+
+// Pure — the two-worktree case the live suite cannot express, because one test process is one
+// session with one already-interpolated header. Both names are registered agents in this studio,
+// which is exactly what makes the leak silent instead of an error.
+describe('the header resolver follows Claude Code precedence: ambient wins, settings fill the rest', () => {
+  const PRANA_SETTINGS = { WORKTREE_AGENT_NAME: 'prana', AGENT_NAME: 'prana' };
+  const ARCTERYX_SHELL = { AGENT_NAME: 'arcteryx' };
+
+  it('ignores a leaked AGENT_NAME when the template names a worktree-only variable', () => {
+    expect(resolveMcpAgent('${WORKTREE_AGENT_NAME}', PRANA_SETTINGS, ARCTERYX_SHELL)).toBe('prana');
+  });
+
+  it('obeys the leak when the template names a variable the shell also exports', () => {
+    // Why the variable had to be renamed rather than just re-sourced: settings cannot outrank an
+    // inherited export, so any name the fleet's shells already carry stays compromised.
+    expect(resolveMcpAgent('${AGENT_NAME}', PRANA_SETTINGS, ARCTERYX_SHELL)).toBe('arcteryx');
+  });
+
+  it('resolves to nothing when the worktree never defined the variable', () => {
+    expect(resolveMcpAgent('${WORKTREE_AGENT_NAME}', {}, {})).toBeUndefined();
+  });
+});
+
+// A worktree that cannot guarantee correct attribution must stop, not guess. whoami() runs this and
+// agent-loop.sh gates on whoami, so the loop refuses to start a misattributing session.
+describe.skipIf(!hasWorktreeSettings())('a header that would misattribute stops the worktree', () => {
+  it('throws when the header variable itself is leaked from another worktree', () => {
+    withAmbient('WORKTREE_AGENT_NAME', 'arcteryx', () => {
+      expect(() => assertAgentMatchesCheckout()).toThrow(/arcteryx/);
     });
   });
 });

@@ -14,6 +14,10 @@
 // and .mcp.json, so the loop needs no extra wiring. This module is the SINGLE authority on
 // that binding — agent-loop.sh asks it via `whoami` rather than reading the environment
 // itself, so the shell cannot disagree with the worktree about who this agent is.
+//
+// One channel it cannot intercept: Claude Code interpolates .mcp.json's X-Agent-Name header at
+// session start, before any of this runs. That header is therefore *asserted* rather than
+// resolved — see resolveMcpAgent() and assertAgentMatchesCheckout().
 
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
@@ -39,7 +43,7 @@ function mcpUrl(): string {
   }
 }
 
-const CREDENTIAL_KEYS = ['STUDIO_AI_TOKEN', 'AGENT_NAME'] as const;
+const CREDENTIAL_KEYS = ['STUDIO_AI_TOKEN', 'AGENT_NAME', 'WORKTREE_AGENT_NAME'] as const;
 type CredentialKey = (typeof CREDENTIAL_KEYS)[number];
 
 // The worktree's own settings file wins over the ambient shell. Each agent worktree is bound to a
@@ -94,7 +98,17 @@ export function hasWorktreeSettings(): boolean {
  * when there is no settings file, so it is safe to call before `hasWorktreeSettings()` is known.
  */
 export function configuredCredential(key: CredentialKey): string | undefined {
-  return settings().env?.[key];
+  return settingsEnv()?.[key];
+}
+
+/**
+ * This worktree's whole `env` block, ignoring the ambient shell.
+ *
+ * `.mcp.json` interpolates against a *set* of variables rather than one key, so the header resolver
+ * needs the block itself. Undefined — never a throw — when there is no settings file.
+ */
+export function settingsEnv(): Record<string, string> | undefined {
+  return settings().env;
 }
 
 /** The agent this worktree is bound to. Exported so the binding itself is testable. */
@@ -130,6 +144,42 @@ export function checkoutAgent(branch: string, worktreeName: string, repoName: st
   return worktreeName.startsWith(`${repoName}-`) ? worktreeName.slice(repoName.length + 1) : undefined;
 }
 
+/**
+ * The `X-Agent-Name` template `.mcp.json` carries, uninterpolated (e.g. `"${WORKTREE_AGENT_NAME}"`).
+ *
+ * Read rather than assumed: `.mcp.json` is tracked and shared by the whole fleet, so this file is
+ * the one place the header's binding is declared, and a test must be able to catch it drifting back
+ * to a variable the shell can reach.
+ */
+export function mcpAgentTemplate(): string | undefined {
+  try {
+    const cfg = JSON.parse(readFileSync(join(REPO_ROOT, '.mcp.json'), 'utf8'));
+    return cfg.mcpServers['studio-ai'].headers['X-Agent-Name'] as string;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * The agent name the MCP header will actually carry, by Claude Code's own precedence rules.
+ *
+ * Claude Code interpolates `.mcp.json` at session start, before anything in this repo runs — so
+ * unlike every other path, this one cannot be corrected from inside `credential()`. Its settings
+ * `env` block *fills* variables that are unset but does **not** override one inherited from the
+ * launching shell, which is why `${AGENT_NAME}` kept resolving to whichever agent's terminal opened
+ * the session. Pure, and the two envs are passed in, so the leak is testable from one process.
+ */
+export function resolveMcpAgent(
+  template: string | undefined,
+  configured: Record<string, string> | undefined,
+  ambient: Record<string, string | undefined>
+): string | undefined {
+  if (!template) return undefined;
+  const variable = /^\$\{([A-Za-z_][A-Za-z0-9_]*)\}$/.exec(template.trim());
+  if (!variable) return template.trim() || undefined; // a literal name, already unambiguous
+  return ambient[variable[1]] ?? configured?.[variable[1]];
+}
+
 /** Ask git what this checkout is. Undefined when git cannot be consulted (not a worktree, no git). */
 function checkoutAgentHere(): string | undefined {
   try {
@@ -153,12 +203,27 @@ function checkoutAgentHere(): string | undefined {
 export function assertAgentMatchesCheckout(): void {
   const configured = agentName();
   const implied = checkoutAgentHere();
-  if (implied && configured !== implied) {
-    const source = settings().env?.AGENT_NAME === undefined ? 'the environment' : '.claude/settings.local.json';
+  if (!implied) return; // the main worktree implies no agent at all — nothing to disagree with
+
+  if (configured !== implied) {
+    const source = settingsEnv()?.AGENT_NAME === undefined ? 'the environment' : '.claude/settings.local.json';
     throw new Error(
       `agent identity mismatch: ${source} says "${configured}", but this checkout says "${implied}". ` +
         `Both may be registered agents, so this cannot be resolved automatically — fix the settings ` +
         `file or work in the right worktree.`
+    );
+  }
+
+  // The MCP header is checked separately because it is resolved by Claude Code, not by us: agreeing
+  // settings are not enough if .mcp.json still names a variable the launching shell can reach.
+  const header = resolveMcpAgent(mcpAgentTemplate(), settingsEnv(), process.env);
+  if (header !== implied) {
+    throw new Error(
+      `MCP agent identity mismatch: .mcp.json's X-Agent-Name resolves to ` +
+        `${header ? `"${header}"` : 'nothing'}, but this checkout says "${implied}". Claude Code ` +
+        `interpolates that header at session start and work_on_next_task has no agentName parameter, ` +
+        `so a task claimed now would be recorded against the wrong agent with no way to correct it. ` +
+        `Set WORKTREE_AGENT_NAME in .claude/settings.local.json, and make sure no shell exports it.`
     );
   }
 }

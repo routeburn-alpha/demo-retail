@@ -5,7 +5,7 @@
       "url": "https://app.getpraxa.ai/api/mcp",
       "headers": {
         "Authorization": "Bearer ${STUDIO_AI_TOKEN}",
-        "X-Agent-Name": "${AGENT_NAME}"
+        "X-Agent-Name": "${WORKTREE_AGENT_NAME}"
       }
     }
   }
