@@ -12,7 +12,7 @@ const url = process.env.DATABASE_URL;
 const suite = url ? describe : describe.skip;
 
 // Per-run unique namespace so parallel fleet agents never collide (ARCHITECTURE §4.3,
-// §2.4.2 — fixed sentinel ids are debt, not a pattern to copy).
+// §2.4.1 — fixed sentinel ids are debt, not a pattern to copy).
 const ns = `__test__${randomUUID().slice(0, 8)}`;
 
 suite('facet ordering schema (integration)', () => {

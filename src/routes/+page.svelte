@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { search, orderFacets, type Product } from '$lib/storefront/search';
+  import { search, orderFacets } from '$lib/storefront/search';
+  import type { Product } from '$lib/domain/product';
   import { POPULAR_QUERIES } from '$lib/storefront/popular-queries';
   import type { FacetOrder } from '$lib/domain/facets';
   import type { DepartmentFilter } from '$lib/domain/department';

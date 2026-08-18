@@ -7,7 +7,7 @@ import {
   deleteCategoryFacetOrders,
   insertCategoryFacetOrders
 } from './select';
-import type { Product } from '$lib/storefront/search';
+import type { Product } from '$lib/domain/product';
 import type { FacetOrder, CategoryFacetConfig } from '$lib/domain/facets';
 import type { DepartmentFilter } from '$lib/domain/department';
 
