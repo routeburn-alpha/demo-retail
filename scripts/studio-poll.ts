@@ -92,13 +92,35 @@ export interface StudioTask {
 const PRODUCT_HEADING = /^(\S[^()]*?) \(([a-z0-9_-]+)\):\s*$/;
 const TASK_LINE = /^\s*#(\d+):/;
 
+// `get_tasks` takes no `agent` argument — it accepts only productCode / taskNumbers / status /
+// type, and silently drops unknown keys — so filtering by agent must happen here. The execution
+// agent is the first bracket group after the task name:
+//   `  #86: Make a British food related pack [managedSonnet] [owner: …] [reviewers: …]`
+// Labelled groups are not agents, so a task with no execution agent yields null rather than
+// borrowing its owner.
+const AGENT_MARKER = /^\s*#\d+:.*?\[([^\]]+)\]/;
+const LABELLED_MARKER = /^(owner|reviewers?):/;
+
+/** The execution agent a `#N:` task line is attributed to, or null when it names none. */
+function agentOf(line: string): string | null {
+  const m = line.match(AGENT_MARKER);
+  return m && !LABELLED_MARKER.test(m[1]) ? m[1] : null;
+}
+
 /** Parse a product-filtered get_tasks listing: the `#N:` headers belong to the given product. */
-function tasksForProduct(text: string, product: string): StudioTask[] {
-  return [...text.matchAll(/^\s*#(\d+):/gm)].map((m) => ({ product, number: Number(m[1]) }));
+function tasksForProduct(text: string, product: string, agent?: string): StudioTask[] {
+  const out: StudioTask[] = [];
+  for (const line of text.split('\n')) {
+    const task = line.match(TASK_LINE);
+    if (task && (!agent || agentOf(line) === agent)) {
+      out.push({ product, number: Number(task[1]) });
+    }
+  }
+  return out;
 }
 
 /** Parse a studio-wide get_tasks listing, attributing each `#N:` to its product heading. */
-function tasksStudioWide(text: string): StudioTask[] {
+function tasksStudioWide(text: string, agent?: string): StudioTask[] {
   const out: StudioTask[] = [];
   let current: string | null = null;
   for (const line of text.split('\n')) {
@@ -108,7 +130,9 @@ function tasksStudioWide(text: string): StudioTask[] {
       continue;
     }
     const task = line.match(TASK_LINE);
-    if (task && current) out.push({ product: current, number: Number(task[1]) });
+    if (task && current && (!agent || agentOf(line) === agent)) {
+      out.push({ product: current, number: Number(task[1]) });
+    }
   }
   return out;
 }
@@ -136,10 +160,10 @@ export async function nextBacklogTask(product?: string): Promise<StudioTask | nu
 export async function resumeTask(agent: string, product?: string): Promise<StudioTask | null> {
   try {
     if (product) {
-      const text = await callTool('get_tasks', { productCode: product, status: 'inProgress', agent });
-      return tasksForProduct(text, product)[0] ?? null;
+      const text = await callTool('get_tasks', { productCode: product, status: 'inProgress' });
+      return tasksForProduct(text, product, agent)[0] ?? null;
     }
-    return tasksStudioWide(await callTool('get_tasks', { status: 'inProgress', agent }))[0] ?? null;
+    return tasksStudioWide(await callTool('get_tasks', { status: 'inProgress' }), agent)[0] ?? null;
   } catch {
     return null;
   }

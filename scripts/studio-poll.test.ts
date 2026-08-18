@@ -34,4 +34,23 @@ describe.skipIf(!hasCredentials())('studio-poll (real studio-ai MCP over HTTP)',
   it('resumeTask(agent) returns {product, number} or null for this agent', async () => {
     expect(isTask(await resumeTask('prana'))).toBe(true);
   });
+
+  // `get_tasks` has no `agent` parameter — the server ignores unknown keys, so filtering by
+  // agent has to happen client-side off the `[agentName]` marker in each task line. Both tests
+  // below skip themselves when the studio has no in-progress work rather than asserting on an
+  // empty listing.
+  it('resumeTask(agent) returns null for an agent with no in-progress work', async () => {
+    const listing = await callTool('get_tasks', { status: 'inProgress' });
+    if (!/^\s*#\d+:/m.test(listing)) return; // nothing in progress studio-wide — nothing to filter
+    expect(await resumeTask('no-such-agent-1f4b9c')).toBeNull();
+  });
+
+  it('resumeTask(agent) only returns a task whose execution agent is that agent', async () => {
+    const listing = await callTool('get_tasks', { status: 'inProgress' });
+    const agent = listing.match(/^\s*#\d+:.*?\[([^\]]+)\]/m)?.[1];
+    if (!agent || agent.startsWith('owner:')) return; // no agent-attributed task to check against
+    const r = await resumeTask(agent);
+    expect(r).not.toBeNull();
+    expect(listing).toMatch(new RegExp(`^\\s*#${r!.number}:.*?\\[${agent}\\]`, 'm'));
+  });
 });
