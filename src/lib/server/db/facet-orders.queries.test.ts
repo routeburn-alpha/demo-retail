@@ -13,7 +13,7 @@ import { getFacetOrderForCategory, getDefaultFacetOrder, updateCategoryFacetOrde
 const url = process.env.DATABASE_URL;
 const suite = url ? describe : describe.skip;
 
-// Per-run unique namespace so parallel fleet agents never collide (§4.3, §2.4.2).
+// Per-run unique namespace so parallel fleet agents never collide (§4.3, §2.4.1).
 const ns = `__test__${randomUUID().slice(0, 8)}`;
 
 suite('facet ordering ports (integration)', () => {

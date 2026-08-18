@@ -1,15 +1,5 @@
 import type { FacetOrder } from '$lib/domain/facets';
-
-export type Product = {
-  id: string;
-  name: string;
-  category: string;
-  price: number;
-  salePrice?: number;
-  discountPct?: number;
-  description: string;
-  imageUrl: string;
-};
+import type { Product } from '$lib/domain/product';
 
 /**
  * Order the facets available for the current results by a category's configured ordering,

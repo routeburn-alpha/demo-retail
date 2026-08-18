@@ -91,11 +91,7 @@ contexts MAY co-locate, but the responsibilities stay distinct):
 
 ### 2.4 Known debt (fix as you touch these areas)
 
-1. **Domain type location.** The canonical `Product` type currently lives in
-   `$lib/storefront/search.ts` and the DB layer imports it from there — the data layer depending on a
-   feature module is backwards. New work **SHOULD** promote `Product` to a neutral home
-   (`$lib/domain/`) and re-point imports.
-2. **Test-data isolation under the fleet.** Integration tests use fixed sentinel IDs (`__test__core`,
+1. **Test-data isolation under the fleet.** Integration tests use fixed sentinel IDs (`__test__core`,
    …) against a shared Neon database. The framework runs N parallel worktree agents (Opinion 7) — fixed
    IDs **will** collide. New DB tests **MUST** use per-run unique namespaces (or transaction-rollback
    fixtures), not shared constant IDs. See §4.3.
@@ -152,7 +148,7 @@ Per [`standards/no-mocks.md`](standards/no-mocks.md):
   and say so at the review gate rather than mocking.
 - **Own your data:** insert the rows the test asserts on; clean up in `beforeAll` *and* `afterAll`.
 - **Parallel-safe IDs:** generate a unique namespace per run; do **not** reuse fixed sentinel IDs
-  across the fleet (see §2.4.2). The current `__test__*` constants are debt to replace, not a pattern
+  across the fleet (see §2.4.1). The current `__test__*` constants are debt to replace, not a pattern
   to copy.
 - Pipe output to a log and read it back — never re-run just to see output again:
   `npm run test 2>&1 | tee logs/test-output.log`.

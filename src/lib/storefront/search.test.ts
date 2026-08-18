@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
-import { orderFacets, search, type Product } from './search';
+import { orderFacets, search } from './search';
+import type { Product } from '$lib/domain/product';
 import type { FacetOrder } from '$lib/domain/facets';
 
 // Pure logic over the REAL static catalogue (read from disk, same source the seed uses).

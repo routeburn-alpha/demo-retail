@@ -1,10 +1,10 @@
 import type { ProductRow, CategoryFacetOrderRow, DefaultFacetOrderRow } from './schema';
 import type { NewCategoryFacetOrderRow } from './schema';
-import type { Product } from '$lib/storefront/search';
+import type { Product } from '$lib/domain/product';
 import type { FacetOrder, CategoryFacetConfig } from '$lib/domain/facets';
 
 /**
- * Map a DB row to the storefront `Product` shape (price in whole dollars).
+ * Map a DB row to the domain `Product` shape (price in whole dollars).
  * Pure — no DB or env dependency, so it is unit-testable in isolation.
  */
 export function toProduct(row: ProductRow): Product {
