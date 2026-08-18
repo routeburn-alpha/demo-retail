@@ -9,6 +9,7 @@
 //   tsx scripts/studio-poll.ts next   [product]   → next backlog task (whole studio, or one product)
 //   tsx scripts/studio-poll.ts resume [product]   → this agent's inProgress task to resume
 //   tsx scripts/studio-poll.ts whoami             → "<agent> <studio>"; nonzero if unresolvable
+//   tsx scripts/studio-poll.ts port               → this worktree's dev-server port; nonzero if unusable
 //
 // Token + agent + endpoint are resolved from the gitignored .claude/settings.local.json
 // and .mcp.json, so the loop needs no extra wiring. This module is the SINGLE authority on
@@ -26,12 +27,22 @@ import { basename, dirname, join } from 'node:path';
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
-function settings(): { env?: Record<string, string> } {
+/** A worktree's own settings file. `{}` — never a throw — when it is absent or unreadable. */
+function settingsAt(worktree: string): { env?: Record<string, string> } {
   try {
-    return JSON.parse(readFileSync(join(REPO_ROOT, '.claude/settings.local.json'), 'utf8'));
+    return JSON.parse(readFileSync(join(worktree, '.claude/settings.local.json'), 'utf8'));
   } catch {
     return {};
   }
+}
+
+function settings(): { env?: Record<string, string> } {
+  return settingsAt(REPO_ROOT);
+}
+
+/** This checkout's root. Exported so a test can assert which worktree the port listing reports. */
+export function repoRoot(): string {
+  return REPO_ROOT;
 }
 
 export function mcpUrl(): string {
@@ -43,7 +54,7 @@ export function mcpUrl(): string {
   }
 }
 
-const CREDENTIAL_KEYS = ['STUDIO_AI_TOKEN', 'AGENT_NAME', 'WORKTREE_AGENT_NAME'] as const;
+const CREDENTIAL_KEYS = ['STUDIO_AI_TOKEN', 'AGENT_NAME', 'WORKTREE_AGENT_NAME', 'AGENT_PORT'] as const;
 type CredentialKey = (typeof CREDENTIAL_KEYS)[number];
 
 // The worktree's own settings file wins over the ambient shell. Each agent worktree is bound to a
@@ -123,6 +134,21 @@ export function settingsEnv(): Record<string, string> | undefined {
 /** The agent this worktree is bound to. Exported so the binding itself is testable. */
 export function agentName(): string {
   return credential('AGENT_NAME') ?? 'unknown';
+}
+
+/**
+ * The dev-server port this worktree is bound to (platform #1121).
+ *
+ * Same leak class as the agent name, but silent where that one was loud: a port inherited from
+ * another worktree's shell either collides with a server already running there, or — worse — serves
+ * this agent's storefront where a different worktree believes it owns the address, so /work-on-task
+ * step 9 can verify a change against code it did not write.
+ *
+ * Undefined rather than agentName()'s `'unknown'` sentinel: there is no usable stand-in for a port,
+ * so an unresolvable one has to reach the caller as a failure rather than as a plausible value.
+ */
+export function agentPort(): string | undefined {
+  return credential('AGENT_PORT');
 }
 
 /**
@@ -310,6 +336,75 @@ export function assertAgentMatchesCheckout(): void {
   }
 }
 
+/** A worktree and the dev-server port its own settings file claims. */
+export interface WorktreePort {
+  path: string;
+  port: string | undefined;
+}
+
+/**
+ * The other worktrees claiming `port`.
+ *
+ * Resolving the port from the worktree is not sufficient on its own: `worktree-init.sh` derives the
+ * port from an argument that defaults to `1` and verifies nothing, so two worktrees can be
+ * *correctly* bound to the same port and both be wrong. The checkout does not encode a port — the
+ * witness assertAgentMatchesCheckout() uses is unavailable here — but the fleet does: every
+ * worktree's settings file is readable from any of them. Pure; the listing is passed in.
+ */
+export function conflictingPortWorktrees(
+  here: string,
+  port: string | undefined,
+  worktrees: WorktreePort[]
+): string[] {
+  if (!port) return []; // nothing configured here is nothing to collide with
+  return worktrees.filter((w) => w.path !== here && w.port === port).map((w) => w.path);
+}
+
+/**
+ * Every worktree of this repo with the port it claims. Empty when git cannot be consulted.
+ *
+ * A sibling's settings file is gitignored and may simply not exist (a worktree that was never
+ * initialised, a fresh clone), which is reported as `undefined` rather than as an error: an
+ * unconfigured worktree cannot collide with anything.
+ */
+export function worktreePorts(): WorktreePort[] {
+  let listing: string;
+  try {
+    listing = execFileSync('git', ['worktree', 'list', '--porcelain'], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore']
+    });
+  } catch {
+    return [];
+  }
+  return listing
+    .split('\n')
+    .filter((line) => line.startsWith('worktree '))
+    .map((line) => line.slice('worktree '.length).trim())
+    .map((path) => ({ path, port: settingsAt(path).env?.AGENT_PORT }));
+}
+
+/**
+ * Stop when another worktree claims this one's dev-server port.
+ *
+ * Raised only for callers about to *use* the port. whoami() warns instead of throwing: it gates the
+ * whole agent loop, and a shared dev-server port is not a reason to refuse to pick up work.
+ */
+export function assertPortIsUnique(): void {
+  const port = agentPort();
+  const clashes = conflictingPortWorktrees(REPO_ROOT, port, worktreePorts());
+  if (clashes.length === 0) return;
+
+  throw new Error(
+    `port collision: this worktree (${agentName()}) is configured for ${port}, but ${clashes.join(', ')} ` +
+      `claims ${port} too. Whichever agent binds it first wins, and the other verifies its change ` +
+      `against a server it does not own. Give one of them a distinct port — re-run ` +
+      `scripts/worktree-init.sh <agent-name> <agent-number>, or edit AGENT_PORT in ` +
+      `.claude/settings.local.json.`
+  );
+}
+
 /** Call a studio-ai MCP tool over HTTP and return its text content. Throws on transport / JSON-RPC error. */
 export async function callTool(name: string, args: Record<string, unknown>): Promise<string> {
   const res = await fetch(mcpUrl(), {
@@ -455,6 +550,9 @@ function whoami(): void {
   for (const key of conflictingCredentials()) {
     console.error(`warning: ${key} differs between the shell and .claude/settings.local.json; using the settings value`);
   }
+  for (const clash of conflictingPortWorktrees(REPO_ROOT, agentPort(), worktreePorts())) {
+    console.error(`warning: ${clash} claims this worktree's dev-server port (${agentPort()}); one of them must change`);
+  }
   try {
     assertAgentMatchesCheckout();
   } catch (e) {
@@ -468,9 +566,30 @@ function whoami(): void {
   console.log(`${agent} ${studio}`);
 }
 
+/**
+ * Print the dev-server port to bind or browse, or fail. Its own subcommand rather than a third
+ * whoami field: agent-loop.sh reads that output with two variables, so a third field would land
+ * inside STUDIO_CODE instead of erroring — a silent break of a live consumer.
+ */
+function port(): void {
+  const value = agentPort();
+  if (!value) {
+    console.error('no dev-server port configured — expected AGENT_PORT in .claude/settings.local.json (see worktree-init.sh)');
+    process.exit(1);
+  }
+  try {
+    assertPortIsUnique();
+  } catch (e) {
+    console.error(e instanceof Error ? e.message : String(e));
+    process.exit(1);
+  }
+  console.log(value);
+}
+
 async function main(): Promise<void> {
   const [, , cmd, a] = process.argv;
   if (cmd === 'whoami') return whoami();
+  if (cmd === 'port') return port();
 
   let task: StudioTask | null;
   if (cmd === 'next') {
@@ -478,7 +597,7 @@ async function main(): Promise<void> {
   } else if (cmd === 'resume') {
     task = await resumeTask(a); // a = optional product filter
   } else {
-    console.error('usage: studio-poll.ts <next [product] | resume [product] | whoami>');
+    console.error('usage: studio-poll.ts <next [product] | resume [product] | whoami | port>');
     process.exit(2);
   }
   if (task) console.log(`${task.product} ${task.number}`);

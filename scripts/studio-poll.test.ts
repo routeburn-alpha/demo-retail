@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   agentName,
+  agentPort,
   studioCode,
   configuredCredential,
   conflictingCredentials,
@@ -16,6 +17,9 @@ import {
   settingsEnv,
   hasCredentials,
   hasWorktreeSettings,
+  conflictingPortWorktrees,
+  worktreePorts,
+  repoRoot,
   studioErrorMessage,
   studioError,
   CredentialRejected,
@@ -35,6 +39,9 @@ const isTask = (r: { product: string; number: number } | null) =>
 
 /** The agent this worktree is bound to by its settings file; undefined when there is no such file. */
 const configuredAgent = configuredCredential('AGENT_NAME');
+
+/** The dev-server port this worktree is bound to by its settings file. */
+const configuredPort = configuredCredential('AGENT_PORT');
 
 /** Run `fn` with `process.env[key]` forced to `value` — or unset, when undefined — then restore. */
 function withAmbient(key: string, value: string | undefined, fn: () => void): void {
@@ -67,6 +74,17 @@ describe.skipIf(!hasWorktreeSettings())('worktree settings beat ambient env', ()
     });
   });
 
+  // The same leak class as AGENT_NAME, but silent instead of loud: a wrong port serves the storefront
+  // on a port another worktree believes it owns, so /work-on-task step 9 can verify a change against
+  // another agent's dev server. Asserting `not.toBe` the ambient value is what proves the fallback
+  // did not win — comparing to the configured value alone would pass vacuously without a settings file.
+  it('resolves the dev-server port from settings.local.json even when the shell exports another', () => {
+    withAmbient('AGENT_PORT', '5199', () => {
+      expect(agentPort()).toBe(configuredPort);
+      expect(agentPort()).not.toBe('5199');
+    });
+  });
+
   it('reports a shell/worktree disagreement instead of resolving it silently', () => {
     withAmbient('AGENT_NAME', 'ambient-imposter', () => {
       expect(conflictingCredentials()).toContain('AGENT_NAME');
@@ -76,6 +94,57 @@ describe.skipIf(!hasWorktreeSettings())('worktree settings beat ambient env', ()
     withAmbient('AGENT_NAME', configuredAgent, () => {
       expect(conflictingCredentials()).not.toContain('AGENT_NAME');
     });
+  });
+
+  it('reports a disagreement on the port as well as the name', () => {
+    withAmbient('AGENT_PORT', '5199', () => {
+      expect(conflictingCredentials()).toContain('AGENT_PORT');
+    });
+  });
+});
+
+// Resolving the port correctly is not enough on its own: worktree-init.sh assigns ports from an
+// argument that defaults to 1 and checks nothing, so two worktrees can be *correctly* bound to the
+// same port. The sibling worktrees are the second witness the port has — the checkout does not
+// encode a port, but the fleet does, and every worktree's settings file is readable from any of them.
+// Pure: the worktree listing is passed in, like checkoutAgent() and resolveMcpAgent().
+describe('a port two worktrees both claim is a collision, not a preference', () => {
+  const HERE = '/w/demo-retail-prana';
+  const SIBLING = '/w/demo-retail-arcteryx';
+
+  it('names the sibling that claims this worktree\'s port', () => {
+    expect(
+      conflictingPortWorktrees(HERE, '5174', [
+        { path: HERE, port: '5174' },
+        { path: SIBLING, port: '5174' }
+      ])
+    ).toEqual([SIBLING]);
+  });
+
+  it('is clean when every worktree has its own port', () => {
+    expect(
+      conflictingPortWorktrees(HERE, '5174', [
+        { path: HERE, port: '5174' },
+        { path: SIBLING, port: '5175' }
+      ])
+    ).toEqual([]);
+  });
+
+  it('ignores a worktree that configures no port at all', () => {
+    // The main worktree has no agent and no port; a fresh clone has no settings file either.
+    expect(conflictingPortWorktrees(HERE, '5174', [{ path: '/w/demo-retail', port: undefined }])).toEqual([]);
+  });
+
+  it('has nothing to collide with when this worktree has no port', () => {
+    expect(conflictingPortWorktrees(HERE, undefined, [{ path: SIBLING, port: '5174' }])).toEqual([]);
+  });
+});
+
+// Real git, real settings files — the I/O half of the check above, with no fixture repo and nothing
+// faked. Runs wherever git does, including a single-worktree CI checkout.
+describe.skipIf(!hasWorktreeSettings())('the worktree list comes from real git', () => {
+  it('reports this checkout with the port it resolves for itself', () => {
+    expect(worktreePorts()).toContainEqual({ path: repoRoot(), port: configuredPort });
   });
 });
 
