@@ -135,7 +135,7 @@ isn't guessable, so read the exact URL off the PR:
 ```bash
 PR=<pr-number>
 gh pr view $PR --json comments --jq '.comments[].body' \
-  | grep -io 'https://demo-retail-git-[a-z0-9-]*routeburn\.vercel\.app' | head -1
+  | grep -io 'https://demo-retail-git-[a-z0-9-]*praxaai\.vercel\.app' | head -1
 ```
 
 ---

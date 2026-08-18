@@ -5,7 +5,7 @@ The preview-URL demo shows a managed agent taking a task → PR → **Vercel bra
 that keeps every run starting from the same clean "before."
 
 Verified live: a pushed branch gets a public preview at a predictable URL
-(`demo-retail-git-<branch>-routeburn.vercel.app`), HTTP 200, no login wall, serving the branch's
+(`demo-retail-git-<branch>-praxaai.vercel.app`), HTTP 200, no login wall, serving the branch's
 build within ~30s. Deleting the branch drops the preview; `main`/production is never touched.
 
 ## What each run mutates (and how it resets)
@@ -26,7 +26,7 @@ build within ~30s. Deleting the branch drops the preview; `main`/production is n
 npm run demo:reset -- --seed
 ```
 
-- Confirm `main` is clean on the **routeburn** Vercel project (production storefront unchanged).
+- Confirm `main` is clean on the **praxaai** Vercel project (production storefront unchanged).
 - Have the dev server running if you also want to point at localhost: `npm run dev`.
 
 ## Per-run reset (between takes)

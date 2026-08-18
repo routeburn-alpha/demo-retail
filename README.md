@@ -4,9 +4,9 @@ A minimal one-page outdoor-gear storefront used as the customer-facing product f
 
 ## Live
 
-- **Production:** https://demo-retail.vercel.app
+- **Production:** https://demo-retail-praxaai.vercel.app
 - **Previews:** every PR into `main` gets its own Vercel preview, linked from the PR's
-  `vercel[bot]` check (URL pattern `demo-retail-git-<branch>-routeburn.vercel.app`).
+  `vercel[bot]` check (URL pattern `demo-retail-git-<branch>-praxaai.vercel.app`).
 
 ## What it demonstrates
 

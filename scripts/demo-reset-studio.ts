@@ -180,7 +180,7 @@ export async function resetStudio(opts: ResetOptions = {}): Promise<ResetResult>
 /** Printed when Studio can't be reached — the reset must never fail the whole demo. */
 const MANUAL_CHECKLIST = `  Studio not reset automatically. By hand:
     • Delete the fuzzy-search idea and its tasks created by the last run.
-    • Confirm the routeburn Vercel production storefront (main) is unchanged.`;
+    • Confirm the praxaai Vercel production storefront (main) is unchanged.`;
 
 async function main(): Promise<void> {
   const argv = process.argv.slice(2);

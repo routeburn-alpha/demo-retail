@@ -244,5 +244,5 @@ cat <<'EOF'
 ✓ Reset complete. Search is exact-match only — "jckt" and "jaket" return nothing.
 
 Remaining manual check:
-  • Confirm the routeburn Vercel production storefront (main) is unchanged.
+  • Confirm the praxaai Vercel production storefront (main) is unchanged.
 EOF
