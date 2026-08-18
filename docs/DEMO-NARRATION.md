@@ -1,6 +1,6 @@
 # studioAI Demo: Full Narration Script
 
-Target runtime: about 8 minutes.
+Target runtime: about 11 minutes.
 Format: **[SCREEN]** = what is visible. Plain text = what you say.
 
 The **studio-first** demo: one customer complaint walked from idea → design → managed-agent
@@ -19,165 +19,260 @@ the low-stock-badge feature). Reset mechanics for this one: [`DEMO-RESET.md`](DE
 
 ---
 
-## 1. Cold open (0:00 to 0:30)
+## 1. Cold open (0:00 to 0:45)
 
 **[SCREEN: the live retail site. Browse briefly. Filter by Women's, then back to All.]**
 
-This is a retail site running in production. Real customers, real orders.
+I want to start somewhere ordinary. This is a retail site, and it is running in production right
+now — real customers, real orders, real money moving through it. Jackets, boots, the sort of thing
+you would buy before a weekend in the hills.
 
 **[SCREEN: type "shel jaket" into search. Empty result.]**
 
-A customer emailed us this morning. They searched for a shell jacket, fat-fingered it, and got nothing back. We sell two of them.
+This morning we got an email from a customer. She was looking for a shell jacket, she typed it a
+little quickly, and the site told her we had nothing. We sell two of them. They were sitting right
+there, in stock, and she never saw them.
 
-Pause here.
+Pause here. Let that sit for a second.
 
-That is a small bug. What happens next is the part I want to show you.
+That is a small bug. Honestly, it is the smallest kind of bug there is. But what happens to it next
+is the part I actually want to show you, because that is where most teams quietly lose their
+afternoons — and their confidence.
 
 ---
 
-## 2. Frame (0:30 to 1:00)
+## 2. Frame (0:45 to 1:30)
 
 **[SCREEN: hold on the empty search result.]**
 
-Most AI coding demos stop at a working prototype. The harder questions come after. Can we change this safely in six months. Does anyone know why it was built this way. Did it work.
+Most AI coding demos end at a working prototype. Something appears on screen, everybody claps, and
+the demo is over. But if you have run an engineering team, you know the applause is not where the
+difficulty lives. The hard questions all arrive later.
 
-I am going to take this one customer complaint all the way to production. Every step is on screen. Nothing is skipped.
+Can we change this safely in six months, when the person who wrote it has moved on? Does anybody
+remember why it was built this way, or which trade-off we made on purpose? And the one nobody likes
+asking out loud — did it actually work? Did the thing we shipped fix the problem we shipped it for?
+
+So I am not going to stop at a prototype. I am going to take this one customer complaint all the
+way through to production, and I am going to leave every step on screen. Nothing skipped, nothing
+edited out. If something is slow or awkward, you will see that too.
 
 ---
 
-## 3. Capture the idea (1:00 to 2:00)
+## 3. Capture the idea (1:30 to 3:00)
 
 **[SCREEN: studioAI, agent panel on the left, work in progress on the right.]**
 
-This is studioAI. On the left, the agent. On the right, everything currently in flight.
+This is studioAI. The layout is deliberately simple: on the left, the agent I am talking to. On the
+right, everything the team currently has in flight. One screen, the whole picture.
 
 **[SCREEN: type the request.]**
 
-I am telling it what came in. A customer searched for a shell jacket with a typo and got nothing.
+I am just going to tell it what came in. Plain language, the way I would tell a colleague standing
+at my desk: a customer searched for a shell jacket, made a typo, and got nothing back.
 
 **[SCREEN: agent loads repository context and searches existing ideas.]**
 
-Two things are happening. It is loading the context for the codebase, and it is checking whether anyone is already working on this. Duplicate effort dies here rather than three days from now.
+Two things are happening while I type, and both matter. It is pulling in the context for this
+codebase — what we have, how it is put together, how we work. And it is checking whether anyone on
+the team has already raised this.
+
+That second one is small and unglamorous and saves a genuinely surprising amount of pain. Duplicate
+effort dies here, in about four seconds, rather than three days from now when two people discover
+they have been solving the same problem in different branches.
 
 **[SCREEN: agent proposes framing.]**
 
-It proposes framing the work as typo tolerance in search, which is the real problem, not this one misspelling. Create the idea.
+Now watch how it frames the work. It does not come back with "fix the word jacket." It proposes
+typo tolerance in search, because that is the real problem. One customer told us about one
+misspelling, but the thing underneath is that our search is unforgiving, and every customer who
+ever types quickly is hitting it.
+
+That reframing is the difference between patching a symptom and fixing a cause. Let us create the
+idea.
 
 ---
 
-## 4. Standards and team input (2:00 to 3:00)
+## 4. Standards and team input (3:00 to 4:15)
 
 **[SCREEN: the idea, with hypothesis field.]**
 
-The idea carries a hypothesis and success criteria. This is not a ticket. It is a claim we are going to test.
+Notice what the idea is carrying. There is a hypothesis, and there are success criteria. This is
+not a ticket that says "make search better" and leaves the rest to whoever picks it up. It is a
+claim — we believe this change will do this specific thing — and we are going to come back at the
+end and check whether we were right.
 
 **[SCREEN: attach architecture and design guidelines.]**
 
-I am attaching our architecture and technical design guidelines. Anything built from here has to respect them. This is how you keep generated code from becoming code nobody can maintain.
+Here I am attaching our architecture and our technical design guidelines. These are the standards
+this team already agreed on, written down once. Anything built from this point forward has to
+respect them.
+
+This is the piece I would underline if you take one thing away. It is how you stop generated code
+from turning into a pile that nobody can maintain. The agent is not inventing house style as it
+goes. It is working inside ours.
 
 **[SCREEN: developer comment appears suggesting fuzzy matching.]**
 
-A developer on the team reviews this and adds a comment suggesting fuzzy matching. Watch what that comment does.
+And now a developer on the team reads this and leaves a comment suggesting fuzzy matching. Just a
+comment, the way you would drop a thought into a pull request or a thread.
+
+Keep an eye on that comment. I want you to see where it ends up.
 
 ---
 
-## 5. Technical design (3:00 to 4:00)
+## 5. Technical design (4:15 to 5:30)
 
 **[SCREEN: generate technical design.]**
 
-The design is generated against three things. The codebase, our engineering standards, and the developer's comment.
+Now we generate the technical design, and it is being written against three things at once: the
+actual codebase, our engineering standards, and that developer's comment from a minute ago.
 
 **[SCREEN: design populates.]**
 
-The human input shaped the implementation. It did not arrive afterward as a review note on something already built. That is the difference between collaboration and cleanup.
+There it is. The human input shaped the implementation itself. It did not show up afterwards as a
+review note on something already half-built, where the honest options are "argue about it" or "let
+it go."
+
+That is the whole difference between collaboration and cleanup. Same comment, same developer,
+completely different cost depending on when it lands.
 
 **[SCREEN: scroll to the test section.]**
 
-Tests are part of the design, not an afterthought. The change does not count as done until they pass.
+And scroll down here — the tests are part of the design. Not a follow-up task, not something we get
+to if there is time on Friday. The change does not count as done until they pass, and that rule is
+written into the plan before a line of code exists.
 
 ---
 
-## 6. Tasks and the gate (4:00 to 5:30)
+## 6. Tasks and the gate (5:30 to 7:15)
 
 **[SCREEN: create tasks. Task list appears.]**
 
-The design becomes tasks. First one is the fuzzy matching implementation.
+The design becomes tasks. First one up is the fuzzy matching implementation — the substance of the
+change.
 
 **[SCREEN: assign to managed agent.]**
 
-No developer is free right now and I want this today, so I am handing it to a managed agent.
+Now, in a perfect week I would hand this to a developer. But nobody is free right now, and I would
+like this fixed today rather than in the next sprint, so I am going to give it to a managed agent.
 
 **[SCREEN: gate prompt requiring the idea to move to building.]**
 
-It will not start. The idea has to move into building first. That is a gate, and there are several. Speed without gates is how teams end up with software they are afraid of.
+And it refuses to start.
+
+I love this moment, so let me stay on it. The idea has to be moved into building before any
+execution begins. That is a gate, and it is one of several sitting along this path.
+
+It is tempting to read that as friction, and in the moment it does feel like friction. But speed
+without gates is exactly how teams end up with a codebase they are quietly afraid of — everything
+went fast, nobody can say what happened, and now every change feels like a risk. The gates are what
+make the speed safe to keep.
 
 **[SCREEN: move to building. Execution begins.]**
 
 **[SCREEN: agent phases: bootstrapping, planning, coding, verifying, submitting.]**
 
-I can walk away here. If I watch, I can see exactly where it is. Bootstrapping, planning, coding, verifying, submitting.
+Now it runs, and I can genuinely walk away here — go to a meeting, get a coffee. But if I do want
+to watch, I can see precisely where it is at any moment. Bootstrapping. Planning. Coding.
+Verifying. Submitting.
+
+No black box, no spinner that means "something is happening somewhere."
 
 **[SCREEN: the failing test being written first.]**
 
-It writes the failing test before it writes the fix. That is our standard, and the agent follows it because we told it to, not because it chose to.
+And look at this one. It writes the failing test before it writes the fix.
+
+That is our standard. It is doing that because we told it to, in the guidelines we attached a few
+minutes ago — not because it happened to feel like it on this particular run. That is the
+difference between a habit and a hope.
 
 ---
 
-## 7. What it cost (5:30 to 6:30)
+## 7. What it cost (7:15 to 8:30)
 
 **[SCREEN: execution complete. Per-phase metrics static on screen.]**
 
-Now the part I care most about.
-
-Every execution reports what it cost. Time in each phase. How many turns the agent took. How many tool calls. Tokens consumed. Estimated dollars.
+Right. This is the part I care most about, and it is usually the part that gets left out.
 
 **[SCREEN: hold on the numbers.]**
 
-Run this across a hundred features and you have something most engineering organizations have never had. The actual unit cost of shipping work, and whether it is going up or down.
+Every execution reports what it cost. Time spent in each phase. How many turns the agent took. How
+many tool calls it made. Tokens consumed. Estimated dollars.
 
-That is a number you can take to a board.
+Sit with that for a moment, because for one feature it looks like trivia. Now run it across a
+hundred features, across a quarter, across a team.
+
+What you have then is something most engineering organizations have genuinely never had: the real
+unit cost of shipping work, and — more importantly — whether that number is going up or down over
+time.
+
+Every leader in this room has been asked what engineering costs and has had to answer with a
+headcount number and a shrug. This is a different kind of answer. This is a number you can take to
+a board and defend.
 
 ---
 
-## 8. Review and ship (6:30 to 7:00)
+## 8. Review and ship (8:30 to 9:10)
 
 **[SCREEN: pull request ready notification, then the PR itself.]**
 
-The work arrives as a pull request. A human reviews it. Nothing reaches production without that.
+The work arrives the way work always arrives here: as a pull request. A human reads it, a human
+approves it. Nothing reaches production without a person putting their name on it, and that is not
+a setting we plan to relax.
+
+The agent moved fast. It did not get to skip the part where somebody is accountable.
 
 **[SCREEN: merge. Deploy.]**
 
-Merged and deployed.
+Merged. Deployed. That is live.
 
 ---
 
-## 9. The fix, live (7:00 to 7:30)
+## 9. The fix, live (9:10 to 9:50)
 
 **[SCREEN: the live site. Search "shel jaket." Both shell jackets appear.]**
 
-Same site. Same search. Same typo. The jackets are there.
+Same site. Same search box. The same typo our customer made this morning.
+
+And there they are — both shell jackets, exactly where she should have found them the first time.
 
 **[SCREEN: search "hikng boot." The hiking boot appears.]**
 
-And it is not a special case for one word. Any near miss in the catalogue, because that was the actual problem.
+And this is not a special case bolted on for one word. Let me try something completely different —
+a misspelled hiking boot. There it is too.
+
+Any near miss in the catalogue now works, because the near miss was the actual problem. We fixed
+the cause, not the complaint.
 
 ---
 
-## 10. Close the loop (7:30 to 8:00)
+## 10. Close the loop (9:50 to 10:45)
 
 **[SCREEN: back to the idea, success criteria verified.]**
 
-Back at the idea we started with, the success criteria we wrote at the beginning are verified against the running site. We are not assuming this worked. We measured it.
+Now let us go all the way back to where we started. Here is the original idea, and here are the
+success criteria we wrote at the very beginning — before any code existed — verified against the
+running site.
+
+We are not assuming this worked. We are not taking the agent's word for it, and we are not taking
+mine. We measured it.
 
 **[SCREEN: retrospective.]**
 
-The agent also produced a retrospective, so the next execution is more efficient than this one.
+The agent also wrote a retrospective on its own run: what went well, what it stumbled over, what it
+would do differently. Which means the next execution starts smarter than this one did. The system
+compounds.
 
 **[SCREEN: the idea, showing the full trail from ticket to production.]**
 
-One customer email. One tracked idea. A design shaped by a human. A reviewed change in production. A verified result. And a record of what all of it cost.
+So here is the whole thing in one view.
 
-That is the whole loop. From studioAI at Praxa.
+One customer email. One tracked idea with a hypothesis attached. A design shaped by a real
+developer's comment before the build, not after. A reviewed, human-approved change in production. A
+verified result. And an honest record of what every bit of it cost.
+
+That is the whole loop — not a prototype, a loop. From studioAI at Praxa.
 
 ---
 
@@ -185,11 +280,15 @@ That is the whole loop. From studioAI at Praxa.
 
 **[SCREEN: retrospective, then the idea's full history.]**
 
-The agent produced a retrospective, so the next run is more efficient than this one.
+The agent wrote a retrospective on its own run — what went well, what it stumbled over, what it
+would do differently next time. So the next run starts smarter than this one did.
 
-And the trail is intact. This change in production traces back to the design, the design traces back to a developer's comment, and all of it traces back to one customer who could not find a jacket.
+And look at what is still intact: the trail. This change in production traces back to the design.
+The design traces back to a developer's comment. And all of it traces back to one customer who
+could not find a jacket we had sitting in stock.
 
-A year from now, when someone asks why this code exists and what it cost, there is an answer.
+A year from now, when somebody new opens this file and asks why this code exists and what it cost
+us — there is an answer waiting for them. That is rarer than it should be.
 
 That is the whole loop. From studioAI at Praxa.
 
