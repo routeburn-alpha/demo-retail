@@ -78,6 +78,9 @@ describe.skipIf(!hasCredentials())('demo-reset-studio (real studio-ai MCP over H
     expect(found.ideas.map((i) => i.number)).toContain(fixtureNumber);
   });
 
+  // Three sequential live round-trips (delete, re-discover, re-delete) against an endpoint that
+  // answers in ~1-2.5s each, so vitest's 5s default leaves no headroom and this reds the suite under
+  // parallel load. The work is real network latency, not a hang — give it a budget that matches.
   it('--apply soft-deletes the idea, and a second run is a no-op (idempotent)', async () => {
     const first = await resetStudio({ product: PRODUCT, apply: true, only: { ideas: [fixtureNumber] } });
     expect(first.ideas.map((i) => i.number)).toContain(fixtureNumber);
@@ -88,5 +91,5 @@ describe.skipIf(!hasCredentials())('demo-reset-studio (real studio-ai MCP over H
 
     const second = await resetStudio({ product: PRODUCT, apply: true, only: { ideas: [fixtureNumber] } });
     expect(second.ideas).toEqual([]);
-  });
+  }, 20_000);
 });

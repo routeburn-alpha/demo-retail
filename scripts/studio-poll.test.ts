@@ -15,7 +15,11 @@ import {
   resolveMcpAgent,
   settingsEnv,
   hasCredentials,
-  hasWorktreeSettings
+  hasWorktreeSettings,
+  studioErrorMessage,
+  studioError,
+  CredentialRejected,
+  mcpUrl
 } from './studio-poll';
 
 // Integration tests — these hit the REAL studio-ai MCP HTTP endpoint (no mocks),
@@ -164,6 +168,70 @@ describe.skipIf(!hasWorktreeSettings())('a header that would misattribute stops 
     withAmbient('WORKTREE_AGENT_NAME', 'arcteryx', () => {
       expect(() => assertAgentMatchesCheckout()).toThrow(/arcteryx/);
     });
+  });
+});
+
+// A red suite must say *why* it is red. hasCredentials() is a presence check, so a token the server
+// rejects (expired, revoked, issued for another studio) lets the live suites run and fail with a
+// bare `studio-ai HTTP 401` — which reads as a regression in whatever change is under test. That
+// actually happened on 2026-08-18 while verifying #1114. Deliberately NOT fixed by making the skip
+// predicate check validity: that would turn a credential problem back into a silent skip, the exact
+// failure mode #1114 exists to eliminate, and ARCHITECTURE.md §5 wants a missing secret to fail the
+// job rather than quietly pass. So the signal stays loud and only the diagnosis gets faster.
+//
+// Pure — status and claims are passed in, no I/O (standards/no-mocks.md permits this for I/O-free
+// logic). The status it keys on is asserted against the real endpoint further down.
+describe('a rejected credential is reported as a credential problem, not a transport error', () => {
+  const CLAIMS = { studioCode: 'search-discovery', exp: 1789656498 };
+
+  it('names the credential and the studio that token opens', () => {
+    const message = studioErrorMessage(401, 'Unauthorized', CLAIMS);
+    expect(message).toMatch(/STUDIO_AI_TOKEN/);
+    expect(message).toMatch(/search-discovery/);
+  });
+
+  it('does not echo the server body, which can quote the rejected credential back', () => {
+    const message = studioErrorMessage(401, 'rejected token eyJhbGciOiJIUzI1NiJ9.payload.sig', CLAIMS);
+    expect(message).not.toContain('eyJhbGciOiJIUzI1NiJ9');
+  });
+
+  it('reports an expiry that has passed as the likely cause', () => {
+    const expired = studioErrorMessage(401, '', { studioCode: 'search-discovery', exp: 1 });
+    expect(expired).toMatch(/expired/i);
+  });
+
+  // The poll paths swallow errors by design — "no tasks" and "endpoint unreachable" are both just
+  // "nothing to pick up" to agent-loop.sh. A refused credential must NOT land in that bucket, or a
+  // dead token shows up as a loop idling politely forever. So it is thrown as its own type.
+  it('classifies a refused credential apart from every other failure', () => {
+    expect(studioError(401, '', CLAIMS)).toBeInstanceOf(CredentialRejected);
+    expect(studioError(403, '', CLAIMS)).toBeInstanceOf(CredentialRejected);
+    expect(studioError(500, 'boom', CLAIMS)).not.toBeInstanceOf(CredentialRejected);
+    expect(studioError(500, 'boom', CLAIMS)).toBeInstanceOf(Error);
+  });
+
+  it('leaves every other failure as the plain transport error it was', () => {
+    const message = studioErrorMessage(500, 'upstream boom', CLAIMS);
+    expect(message).toMatch(/HTTP 500/);
+    expect(message).toMatch(/upstream boom/);
+    expect(message).not.toMatch(/STUDIO_AI_TOKEN/);
+  });
+});
+
+// Real endpoint, real rejection — this is what makes the pure test above more than a guess about
+// the server contract. No mock: a genuinely invalid bearer against the live MCP URL.
+describe.skipIf(!hasCredentials())('the live endpoint really rejects an invalid credential', () => {
+  it('answers 401, the status the message keys on', async () => {
+    const res = await fetch(mcpUrl(), {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer not-a-real-token',
+        'Content-Type': 'application/json',
+        Accept: 'application/json, text/event-stream'
+      },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'get_tasks', arguments: {} } })
+    });
+    expect(res.status).toBe(401);
   });
 });
 
