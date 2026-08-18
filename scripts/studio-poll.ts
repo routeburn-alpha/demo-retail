@@ -31,7 +31,7 @@ function mcpUrl(): string {
     const cfg = JSON.parse(readFileSync(join(REPO_ROOT, '.mcp.json'), 'utf8'));
     return cfg.mcpServers['studio-ai'].url as string;
   } catch {
-    return 'https://app.routeburn.org/api/mcp';
+    return 'https://app.getpraxa.ai/api/mcp';
   }
 }
 
