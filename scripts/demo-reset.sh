@@ -11,8 +11,10 @@
 #
 # Four kinds of state are in play. This script handles three and reports the fourth:
 #   1. Code     — current branch pinned to origin/main, then the search matcher
-#                 forced back to the fuzzy-free baseline tag. Self-healing: if
-#                 fuzzy matching ever lands on main, this still restores "before".
+#                 forced back to the fuzzy-free baseline tag, and any file the
+#                 baseline does not have removed from the matcher directory.
+#                 Self-healing: if fuzzy matching ever lands on main — inline or
+#                 as a new module — this still restores "before".
 #   2. Branches — optionally delete a throwaway demo branch (local + remote),
 #                 which drops its Vercel preview.
 #   3. DB       — optionally reseed (--seed) so the low-stock badge renders.
@@ -51,6 +53,13 @@ SEARCH_FILES=(
   src/lib/storefront/search.ts
   src/lib/storefront/search.test.ts
 )
+
+# The directory those files live in. A hardcoded file list can only ever check files someone
+# remembered to add to it, so a capability arriving as a NEW file is invisible to it — that is
+# how src/lib/storefront/fuzzy.ts survived two clean resets (#1128). The directory is watched for
+# *added* paths only; diffing the whole of it would also flag unrelated modules that legitimately
+# change (category.ts, reorder.ts) and the reset would revert real work.
+SEARCH_DIR=src/lib/storefront
 
 DO_SEED=0
 DO_CHECK=0
@@ -99,13 +108,32 @@ verify_baseline() {
     fi
   fi
 
-  # 2. Defence in depth, and the only check available if the tag is missing:
-  #    the matcher itself must contain no edit-distance machinery.
-  if grep -nE 'levenshtein|tokenMatches|MAX_EDIT_DIST|editDistance' src/lib/storefront/search.ts >/dev/null 2>&1; then
-    echo "✗ fuzzy matching still present in src/lib/storefront/search.ts" >&2
+  # 1b. Check (1) can only see files it already names. A capability can also arrive as a NEW
+  #     file, which no list entry covers — so ask git which paths exist here but not in the tag.
+  #     Added paths only, deliberately: a full directory diff would also fire on unrelated
+  #     modules and the reset would revert work that has nothing to do with the demo.
+  if git rev-parse --verify --quiet "refs/tags/$BASELINE_TAG" >/dev/null; then
+    local added
+    added="$(git diff --diff-filter=A --name-only "$BASELINE_TAG" -- "$SEARCH_DIR")"
+    if [ -n "$added" ]; then
+      echo "✗ files added to $SEARCH_DIR since $BASELINE_TAG:" >&2
+      echo "$added" | sed 's/^/    /' >&2
+      failed=1
+    else
+      echo "✓ no files added to $SEARCH_DIR since $BASELINE_TAG"
+    fi
+  fi
+
+  # 2. Defence in depth, and the only check available if the tag is missing: no edit-distance
+  #    machinery anywhere under the matcher directory. Scoped to search.ts alone this missed
+  #    fuzzy.ts entirely, and it is also the only check that sees an UNTRACKED file, which git
+  #    diff cannot.
+  if grep -rnE 'levenshtein|tokenMatches|MAX_EDIT_DIST|editDistance' "$SEARCH_DIR" >/dev/null 2>&1; then
+    echo "✗ fuzzy matching still present under $SEARCH_DIR:" >&2
+    grep -rlE 'levenshtein|tokenMatches|MAX_EDIT_DIST|editDistance' "$SEARCH_DIR" | sed 's/^/    /' >&2
     failed=1
   else
-    echo "✓ search.ts is exact-match only"
+    echo "✓ $SEARCH_DIR is exact-match only"
   fi
 
   # 3. Behaviour: the baseline suite asserts search('jaket') returns []. Green here
@@ -184,6 +212,20 @@ if git rev-parse --verify --quiet "refs/tags/$BASELINE_TAG" >/dev/null; then
     echo "⚠ $BASELINE_BRANCH CONTAINS FUZZY MATCHING — restored search files from $BASELINE_TAG."
     echo "  The working tree is now correct for the demo, but it is dirty."
     echo "  Fix the root cause by reverting the fuzzy commit on main."
+  fi
+
+  # `git checkout <tag> -- <dir>` copies files OUT of the tag; it never deletes one the tag does
+  # not have. A capability that landed as a new file therefore survives the restore above, which
+  # is exactly how fuzzy.ts stayed on disk through a reset that reported success (#1128).
+  ADDED_FILES="$(git diff --diff-filter=A --name-only "$BASELINE_TAG" -- "$SEARCH_DIR")"
+  if [ -n "$ADDED_FILES" ]; then
+    echo "$ADDED_FILES" | while IFS= read -r f; do
+      [ -n "$f" ] && git rm --quiet --force -- "$f"
+    done
+    echo "⚠ $BASELINE_BRANCH ADDS FILES the baseline does not have — removed them:"
+    echo "$ADDED_FILES" | sed 's/^/    /'
+    echo "  The working tree is now correct for the demo, but it is dirty."
+    echo "  Fix the root cause by reverting the commit that added them on main."
   fi
 else
   echo "⚠ Baseline tag '$BASELINE_TAG' not found — relying on $BASELINE_BRANCH alone."
