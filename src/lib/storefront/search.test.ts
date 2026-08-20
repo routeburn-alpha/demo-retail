@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
-import { orderFacets, search, fuzzySearch } from './search';
+import { orderFacets, search } from './search';
 import type { Product } from '$lib/domain/product';
 import type { FacetOrder } from '$lib/domain/facets';
 
@@ -8,12 +8,6 @@ import type { FacetOrder } from '$lib/domain/facets';
 // No DB, no fetch, no mocks — allowed per ARCHITECTURE §4.1 (the search matcher has no I/O).
 const realCatalog: Product[] = JSON.parse(readFileSync('static/catalog.json', 'utf-8'));
 const isWomens = (p: Product) => /women'?s/i.test(p.name);
-
-// Minimal catalog for exact-before-fuzzy ordering tests.
-const miniCatalog: Product[] = [
-  { id: 'ex', name: 'Exact Product', category: 'exact match', price: 10, description: '', imageUrl: '' },
-  { id: 'fz', name: 'Fuzzy Prodact', category: 'fuzzy only', price: 10, description: '', imageUrl: '' }
-];
 
 describe('exact search', () => {
   it('matches every product whose name or category contains all query tokens', () => {
@@ -24,11 +18,15 @@ describe('exact search', () => {
     ).toBe(true);
   });
 
-  it('fuzzy matching surfaces women\'s products for "womens" (distance 1 from "women\'s")', () => {
-    // "womens" is distance 1 from "women's" — fuzzy search closes the gap without a synonym layer.
-    const results = search('womens', realCatalog);
-    expect(results.length).toBeGreaterThan(0);
-    expect(results.every(isWomens)).toBe(true);
+  it('does not tolerate typos (fuzzy matching removed)', () => {
+    // "jaket" is a one-character typo of "jacket"; exact matching surfaces nothing.
+    expect(search('jaket', realCatalog)).toEqual([]);
+  });
+
+  it('does not expand synonyms (synonym matching removed)', () => {
+    // "womens" (no apostrophe) is not a literal token in any name/category — only the
+    // removed synonym layer used to surface the women's line for it.
+    expect(search('womens', realCatalog)).toEqual([]);
   });
 });
 
@@ -41,57 +39,6 @@ describe("women's clothing line", () => {
     const results = search("women's", realCatalog);
     expect(results.length).toBeGreaterThan(0);
     expect(results.every(isWomens)).toBe(true);
-  });
-});
-
-describe('fuzzy search', () => {
-  it('activates when exact results are empty — "jaket" returns jacket products', () => {
-    // "jaket" is distance 1 from "jacket"; exact matching surfaces nothing, fuzzy takes over.
-    const results = search('jaket', realCatalog);
-    expect(results.length).toBeGreaterThan(0);
-    expect(
-      results.every((p) => `${p.name} ${p.category}`.toLowerCase().includes('jacket'))
-    ).toBe(true);
-  });
-
-  it('returns exact matches before fuzzy-only results', () => {
-    // "product" exactly matches id="ex" (name: "Exact Product").
-    // "prodact" is distance 2 from "product" so id="fz" (name: "Fuzzy Prodact") is a fuzzy match.
-    const results = search('product', miniCatalog);
-    expect(results.map((p) => p.id)).toEqual(['ex', 'fz']);
-  });
-
-  it('"shel jaket" returns shell jacket products ranked before any other fuzzy matches', () => {
-    // "shel" is distance 1 from "shell"; "jaket" is distance 1 from "jacket".
-    // Shell jacket products match both tokens; other products fail at least one.
-    const results = search('shel jaket', realCatalog);
-    const shellJackets = results.filter((p) => p.category === 'shell jacket');
-    expect(shellJackets.length).toBeGreaterThan(0);
-    // Shell jacket products occupy the leading positions.
-    const leading = results.slice(0, shellJackets.length);
-    expect(leading.every((p) => p.category === 'shell jacket')).toBe(true);
-  });
-
-  it('matches at distance 2 — "jakt" finds jacket products', () => {
-    // "jakt" requires two edits to become "jacket" (insert 'c', insert 'e').
-    const results = search('jakt', realCatalog);
-    expect(results.length).toBeGreaterThan(0);
-    expect(
-      results.every((p) => `${p.name} ${p.category}`.toLowerCase().includes('jacket'))
-    ).toBe(true);
-  });
-
-  it('does not match at distance 3 — "jkt" finds nothing', () => {
-    // "jkt" is distance 3 from "jacket" and ≥ 3 from every other catalog word.
-    expect(search('jkt', realCatalog)).toEqual([]);
-  });
-
-  it('fuzzySearch directly returns all products fuzzy-matching a token', () => {
-    const results = fuzzySearch('jaket', realCatalog);
-    expect(results.length).toBeGreaterThan(0);
-    expect(
-      results.every((p) => `${p.name} ${p.category}`.toLowerCase().includes('jacket'))
-    ).toBe(true);
   });
 });
 
