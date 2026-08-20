@@ -233,9 +233,15 @@ describe('the header resolver follows Claude Code precedence: ambient wins, sett
 // A worktree that cannot guarantee correct attribution must stop, not guess. whoami() runs this and
 // agent-loop.sh gates on whoami, so the loop refuses to start a misattributing session.
 describe.skipIf(!hasWorktreeSettings())('a header that would misattribute stops the worktree', () => {
+  // Derived, not hardcoded: a literal agent name is only a *mismatch* on the worktrees that are
+  // not that agent. Hardcoding 'arcteryx' passed everywhere except the arcteryx worktree, where
+  // the "leak" matched the checkout and correctly did not throw — and CI never saw it, because
+  // hasWorktreeSettings() skips this suite there.
+  const foreignAgent = `not-${configuredAgent ?? 'unknown'}`;
+
   it('throws when the header variable itself is leaked from another worktree', () => {
-    withAmbient('WORKTREE_AGENT_NAME', 'arcteryx', () => {
-      expect(() => assertAgentMatchesCheckout()).toThrow(/arcteryx/);
+    withAmbient('WORKTREE_AGENT_NAME', foreignAgent, () => {
+      expect(() => assertAgentMatchesCheckout()).toThrow(new RegExp(foreignAgent));
     });
   });
 });
