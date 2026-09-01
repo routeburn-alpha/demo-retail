@@ -9,58 +9,24 @@ import type { FacetOrder } from '$lib/domain/facets';
 const realCatalog: Product[] = JSON.parse(readFileSync('static/catalog.json', 'utf-8'));
 const isWomens = (p: Product) => /women'?s/i.test(p.name);
 
-describe('fuzzy search with typo tolerance', () => {
-  it('matches products with exact query tokens', () => {
+describe('exact search', () => {
+  it('matches every product whose name or category contains all query tokens', () => {
     const results = search('jacket', realCatalog);
     expect(results.length).toBeGreaterThan(0);
-    expect(results.some((p) => p.name.toLowerCase().includes('jacket'))).toBe(true);
+    expect(
+      results.every((p) => `${p.name} ${p.category}`.toLowerCase().includes('jacket'))
+    ).toBe(true);
   });
 
-  it('tolerates single-character typos in short tokens (≤5 chars)', () => {
-    // "jaket" is a one-character typo of "jacket"; fuzzy matching should surface results.
-    const results = search('jaket', realCatalog);
-    expect(results.length).toBeGreaterThan(0);
-    expect(results.some((p) => p.category.toLowerCase().includes('jacket'))).toBe(true);
+  it('does not tolerate typos (fuzzy matching removed)', () => {
+    // "jaket" is a one-character typo of "jacket"; exact matching surfaces nothing.
+    expect(search('jaket', realCatalog)).toEqual([]);
   });
 
-  it('tolerates typos in multi-token queries where all tokens match', () => {
-    // "shel" (one typo) + "jaket" (one typo) should match "shell jacket"
-    const results = search('shel jaket', realCatalog);
-    expect(results.length).toBeGreaterThan(0);
-    expect(results.some((p) => /shell.*jacket/i.test(`${p.name} ${p.category}`))).toBe(true);
-  });
-
-  it('is case-insensitive', () => {
-    const lowerResults = search('shell', realCatalog);
-    const upperResults = search('SHELL', realCatalog);
-    expect(lowerResults).toEqual(upperResults);
-  });
-
-  it('requires all query tokens to match (all must have edit distance ≤ threshold)', () => {
-    // "jacket" exists, but "xyz" does not and has no close match
-    const results = search('jacket xyz', realCatalog);
-    expect(results.length).toEqual(0);
-  });
-
-  it('returns all products when query is empty or whitespace-only', () => {
-    expect(search('', realCatalog)).toEqual(realCatalog);
-    expect(search('   ', realCatalog)).toEqual(realCatalog);
-  });
-
-  it('does not match when edit distance exceeds threshold for short tokens', () => {
-    // "xyz" is too far from any word in the catalog
-    const results = search('xyz', realCatalog);
-    expect(results.length).toEqual(0);
-  });
-
-  it('handles product names and categories (both are searched)', () => {
-    // "fleece" is a category; should match fleece products
-    const results = search('fleece', realCatalog);
-    expect(results.length).toBeGreaterThan(0);
-    expect(results.every((p) => `${p.name} ${p.category}`.toLowerCase().includes('fleece') || 
-      p.name.toLowerCase().match(/flees/) ||
-      p.category.toLowerCase().match(/flees/)
-    )).toBe(true);
+  it('does not expand synonyms (synonym matching removed)', () => {
+    // "womens" (no apostrophe) is not a literal token in any name/category — only the
+    // removed synonym layer used to surface the women's line for it.
+    expect(search('womens', realCatalog)).toEqual([]);
   });
 });
 
