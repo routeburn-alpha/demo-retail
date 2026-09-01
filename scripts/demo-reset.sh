@@ -87,13 +87,43 @@ CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
 # ---------------------------------------------------------------------------
 # verify_baseline — is the working tree actually in the "before" state?
 #
-# Greps for fuzzy symbols, then (unless --no-verify) runs the search unit tests.
+# Compares against the pinned tag and greps for fuzzy symbols, then (unless
+# --no-verify) runs two behavioural checks: the search unit tests and the
+# security standards.
+#
 # The tests are the real check: the baseline suite asserts that search('jaket')
 # returns [], so a green run proves typo tolerance is genuinely absent, rather
-# than just proving a particular identifier is missing.
+# than just proving a particular identifier is missing. The security check does
+# the same job for a leak, and is the only check here NOT scoped to $SEARCH_DIR
+# — which is exactly why it exists (#1131).
 # ---------------------------------------------------------------------------
 verify_baseline() {
   local failed=0
+
+  # 0. Residue, and ONLY in --check mode. The behavioural checks below cannot see dead code: it
+  #    never runs, so nothing leaks and every test stays green. It still ruins the demo — an agent
+  #    asked to build the capability finds it already half-written and just wires it up, which is
+  #    how #1149 collapsed the beat. This is git-level, so it sees residue anywhere in the repo
+  #    without a list of locations to keep up to date.
+  #
+  #    Gated on --check deliberately: after a FULL reset the tree is legitimately dirty in the
+  #    self-healing cases below (files restored from the tag, added files git rm'd), and failing
+  #    the post-reset verification for that would be wrong.
+  if [ "$DO_CHECK" -eq 1 ]; then
+    local dirty
+    # -uall: without it git collapses a wholly-untracked directory to "?? src/lib/server/", which
+    # hides the filename that tells a presenter what was actually left behind.
+    dirty="$(git status --porcelain --untracked-files=all)"
+    if [ -n "$dirty" ]; then
+      echo "✗ working tree is not clean — residue from a previous run:" >&2
+      echo "$dirty" | sed 's/^/    /' >&2
+      echo "  Dead code left behind still collapses the demo, even though nothing leaks." >&2
+      echo "  Run: scripts/demo-reset.sh" >&2
+      failed=1
+    else
+      echo "✓ working tree clean (no residue from a previous run)"
+    fi
+  fi
 
   # 1. Strongest check: the demo's files must match the pinned baseline byte for byte.
   #    This is what catches a shipped feature — fuzzy matching arrives WITH its own
@@ -140,11 +170,36 @@ verify_baseline() {
   #    means typo tolerance is genuinely absent — but only meaningful alongside (1),
   #    since a shipped feature would replace these tests with ones that expect fuzzy.
   if [ "$DO_VERIFY" -eq 1 ]; then
-    if npx vitest run src/lib/storefront/search.test.ts >/tmp/demo-reset-verify.log 2>&1; then
+    if npm run --silent test:baseline >/tmp/demo-reset-verify.log 2>&1; then
       echo "✓ search unit tests green"
     else
       echo "✗ search tests failed — repo is NOT at the demo baseline" >&2
       tail -25 /tmp/demo-reset-verify.log >&2
+      failed=1
+    fi
+  fi
+
+  # 4. Behaviour: the SECURITY standards. Checks (1)-(3) all look only at $SEARCH_DIR, but the
+  #    security demo's blast radius is src/lib/server/db/ and src/routes/ — a leak there passed
+  #    every check above and still reported "ready" (#1131). Rather than watch a second directory,
+  #    assert the behaviour: `test:security` runs the whole `security` vitest project, so a leak
+  #    fails this check wherever it lives, and a future security standard is covered the moment it
+  #    is added. Enumerating locations is what failed in #1128 and again in #1129.
+  if [ "$DO_VERIFY" -eq 1 ]; then
+    if npm run --silent test:security >/tmp/demo-reset-security.log 2>&1; then
+      # vitest exits 0 when every test SKIPS (no DATABASE_URL). Calling that a pass would be a
+      # quieter version of this very bug — for a pre-flight, "could not verify" is not "ready".
+      if grep -qE '[0-9]+ skipped' /tmp/demo-reset-security.log; then
+        echo "✗ security standards NOT VERIFIED — the tests skipped, so nothing was proven" >&2
+        grep -E 'Test Files|Tests ' /tmp/demo-reset-security.log | sed 's/^/    /' >&2
+        echo "  Almost certainly a missing DATABASE_URL. Set it and re-run before demoing." >&2
+        failed=1
+      else
+        echo "✓ security standards hold"
+      fi
+    else
+      echo "✗ security standards FAILED — a not-for-sale product can reach the storefront" >&2
+      tail -30 /tmp/demo-reset-security.log >&2
       failed=1
     fi
   fi
