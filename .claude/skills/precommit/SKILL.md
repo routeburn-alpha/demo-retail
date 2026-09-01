@@ -77,15 +77,21 @@ On approval. **Checkout the agent branch before merging and avoid `gh --delete-b
 checked out in a sibling worktree, so `gh`'s post-merge `git checkout main` would be refused
 (`fatal: 'main' is already used by worktree ...`). Get off the PR branch first and delete branches
 explicitly so `gh` never touches local git state:
+`main` requires the four CI checks (`check`, `build`, `test`, `security`), so the merge is refused
+while a run is still in flight. **Wait for the run before merging** — do not use
+`gh pr merge --auto`, which returns immediately and would let the lines below delete the PR branch
+out from under a merge that had not fired yet:
 ```bash
 git checkout "$AGENT_BRANCH"                                  # leave the PR branch BEFORE merging
+gh pr checks "$PR_BRANCH" --watch --fail-fast                 # block until all four checks report
 gh pr merge "$PR_BRANCH" --squash                             # remote squash-merge only — no local git ops
 git push origin --delete "$PR_BRANCH" 2>/dev/null || true    # delete the remote PR branch explicitly
 git fetch origin main && git reset --hard origin/main         # agent branch now mirrors main exactly
 git branch -D "$PR_BRANCH" 2>/dev/null || true                # delete the local PR branch
 ```
-Mark the studio task done: `update_task` with `status: done` and the merged PR (the backend
-requires a merged PR for the `done` transition).
+**Do not set the task status by hand.** The PR-merge webhook transitions `review → releasing`, and
+`deployment_status` takes it on to `shipped`. `done` is not a valid status, and `update_task` says
+explicitly not to call it after a merge. Just confirm the transition landed with `get_tasks`.
 
 ### 7. Build report
 Post a build report as a comment on the studio task (`create_comment`) — three sections from the
