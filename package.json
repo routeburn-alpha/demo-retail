@@ -10,6 +10,8 @@
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json && tsc --noEmit -p tsconfig.framework.json",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:app": "vitest run --project node --project browser",
+    "test:security": "vitest run --project security",
     "precommit": "npm run check && npm run build && npm test",
     "db:push": "drizzle-kit push",
     "db:generate": "drizzle-kit generate",

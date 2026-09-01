@@ -164,13 +164,20 @@ Per [`standards/no-mocks.md`](standards/no-mocks.md):
 - **Local `/precommit` is the primary door** — the gate runs locally/in-agent before push via
   [`/precommit`](.claude/skills/precommit/SKILL.md) ("the push gate is the only door"). A change
   **MUST** pass the full gate before it can land; do not rationalize a red test as pre-existing/flaky.
-- **Server-side CI mirrors the gate** — [`.github/workflows/ci.yml`](.github/workflows/ci.yml) re-runs
-  the full `npm run precommit` (check → build → test) on every PR into `main` and on pushes to feature
-  branches, as a safety net for a change that bypassed the local gate. It is **not** a replacement for
-  `/precommit`. CI runs the same **real** services as local (real Chromium; real Postgres via a
-  `DATABASE_URL` secret + `db:push`) so the no-mocks standard holds in CI exactly as locally — a
-  missing DB secret fails the job rather than silently skipping the integration test.
+- **Server-side CI mirrors the gate, as four named jobs** —
+  [`.github/workflows/ci.yml`](.github/workflows/ci.yml) re-runs the same gate on every PR into `main`
+  as **`check`**, **`build`**, **`test`** and **`security`**, in parallel. Splitting it is a
+  *reporting* decision, not a weaker gate: a failure names the concern that failed, so a hidden-product
+  leak reddens `security` alone (see [`standards/no-hidden-products-in-search.md`](standards/no-hidden-products-in-search.md)).
+  It is **not** a replacement for `/precommit`. CI runs the same **real** services as local (real
+  Chromium; real Postgres via a `DATABASE_URL` secret + `db:push`) so the no-mocks standard holds in
+  CI exactly as locally — a missing DB secret fails the job rather than silently skipping the
+  integration test.
+- **The ladder is enforced, not advisory** — branch protection on `main` requires all four checks, so
+  a red rung blocks the merge and therefore blocks production. Renaming a job in `ci.yml` means
+  updating that setting, or the required check stops reporting.
 - Merge & deploy are GitHub (squash-merge to `main`) + Vercel (preview per PR, production on `main`).
+  Because `main` deploys straight to production, the merge is the last reversible moment.
 
 ---
 
