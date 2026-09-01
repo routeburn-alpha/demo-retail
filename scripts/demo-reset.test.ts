@@ -58,8 +58,25 @@ function runReset(cwd: string, args: string[]): { status: number; output: string
   return { status: res.status ?? -1, output: `${res.stdout ?? ''}${res.stderr ?? ''}` };
 }
 
+/**
+ * The three ways `npm run test:security` can end, as real commands the fixture actually executes.
+ *
+ * The fixture has no `node_modules`, so it cannot run real vitest — that is why every file-level
+ * test below passes `--no-verify`. These stand in for the *result* the script has to interpret, in
+ * the same spirit as `SEARCH_TS` above standing in for a real matcher: real files, real commands,
+ * a real repo. The genuine vitest + real-Postgres path is exercised against this checkout itself.
+ *
+ * `skip` is the important one: vitest exits **0** when every test is skipped (no `DATABASE_URL`),
+ * so a naive "did it exit 0?" would call an unverifiable tree "ready".
+ */
+const SECURITY_OUTCOME = {
+  pass: `node -e "console.log('Test Files  1 passed (1)'); console.log('Tests  4 passed (4)')"`,
+  fail: `node -e "console.error('SECURITY — the storefront leaked 1 product that is NOT FOR SALE'); process.exit(1)"`,
+  skip: `node -e "console.log('Test Files  1 skipped (1)'); console.log('Tests  4 skipped (4)')"`
+} as const;
+
 /** A repo at the demo baseline: matcher + its test + an unrelated module, tagged and pushed. */
-function makeRepo(): string {
+function makeRepo(security: keyof typeof SECURITY_OUTCOME = 'pass'): string {
   root = mkdtempSync(join(tmpdir(), 'demo-reset-'));
   const origin = join(root, 'origin.git');
   const work = join(root, 'work');
@@ -76,6 +93,21 @@ function makeRepo(): string {
   writeFileSync(join(work, DIR, 'search.ts'), SEARCH_TS);
   writeFileSync(join(work, DIR, 'search.test.ts'), SEARCH_TEST_TS);
   writeFileSync(join(work, DIR, 'category.ts'), CATEGORY_TS);
+  writeFileSync(
+    join(work, 'package.json'),
+    `${JSON.stringify(
+      {
+        name: 'demo-reset-fixture',
+        private: true,
+        scripts: {
+          'test:baseline': `node -e "console.log('Tests  1 passed (1)')"`,
+          'test:security': SECURITY_OUTCOME[security]
+        }
+      },
+      null,
+      2
+    )}\n`
+  );
 
   git(work, 'add', '-A');
   git(work, 'commit', '--quiet', '-m', 'baseline');
@@ -123,6 +155,76 @@ describe('demo-reset.sh --check', () => {
 
     expect(output).toContain('Ready to run the demo');
     expect(status).toBe(0);
+  });
+});
+
+// These deliberately do NOT pass --no-verify: the behavioural checks are the subject. A leak can
+// live in ANY file, so `--check` asserts the security standards rather than watching a second
+// directory — #1128 and #1129 were both enumeration misses, and this was the same bug one
+// directory over.
+describe('demo-reset.sh --check verifies the security standards', () => {
+  it('fails when a security standard does not hold, wherever the leak lives', () => {
+    const work = makeRepo('fail');
+
+    const { status, output } = runReset(work, ['--check']);
+
+    expect(status).not.toBe(0);
+    expect(output).toMatch(/security/i);
+    expect(output).not.toContain('Ready to run the demo');
+  });
+
+  it('fails when the security tests were SKIPPED — an unverifiable tree is not "ready"', () => {
+    // vitest exits 0 when every test skips (no DATABASE_URL). Treating that as a pass would be a
+    // quieter version of the very bug this check exists to fix.
+    const work = makeRepo('skip');
+
+    const { status, output } = runReset(work, ['--check']);
+
+    expect(status).not.toBe(0);
+    expect(output).toMatch(/not verified|skipped/i);
+    expect(output).not.toContain('Ready to run the demo');
+  });
+
+  it('passes when the security standards hold', () => {
+    const work = makeRepo('pass');
+
+    const { status, output } = runReset(work, ['--check']);
+
+    expect(output).toContain('Ready to run the demo');
+    expect(status).toBe(0);
+  });
+});
+
+// Residue is a SEPARATE failure from a leak, and the behavioural checks cannot see it: dead code
+// never runs, so nothing leaks and every test stays green. It still ruins the demo — an agent asked
+// to build the capability finds it already half-written and just wires it up, which is exactly how
+// #1149 collapsed the beat. Caught at the git level so it needs no list of locations.
+describe('demo-reset.sh --check rejects residue from a previous run', () => {
+  it('fails on an uncommitted edit outside the matcher directory', () => {
+    const work = makeRepo('pass');
+    mkdirSync(join(work, 'src/lib/server/db'), { recursive: true });
+    writeFileSync(
+      join(work, 'src/lib/server/db/select.ts'),
+      'export function selectMatchingProducts() {}\n'
+    );
+
+    const { status, output } = runReset(work, ['--check']);
+
+    expect(status).not.toBe(0);
+    expect(output).toContain('select.ts');
+    expect(output).not.toContain('Ready to run the demo');
+  });
+
+  it('fails on an untracked module left behind anywhere in the repo', () => {
+    const work = makeRepo('pass');
+    mkdirSync(join(work, 'src/lib/server/db'), { recursive: true });
+    writeFileSync(join(work, 'src/lib/server/db/fuzzy-select.ts'), FUZZY_TS);
+
+    const { status, output } = runReset(work, ['--check']);
+
+    expect(status).not.toBe(0);
+    expect(output).toContain('fuzzy-select.ts');
+    expect(output).not.toContain('Ready to run the demo');
   });
 });
 
