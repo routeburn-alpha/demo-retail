@@ -18,15 +18,38 @@ describe('exact search', () => {
     ).toBe(true);
   });
 
-  it('does not tolerate typos (fuzzy matching removed)', () => {
-    // "jaket" is a one-character typo of "jacket"; exact matching surfaces nothing.
-    expect(search('jaket', realCatalog)).toEqual([]);
+  it('tolerates single-character typos (fuzzy matching)', () => {
+    // "jaket" is one edit away from "jacket"; fuzzy matching should surface jacket products.
+    const results = search('jaket', realCatalog);
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.every((p) => /jacket/i.test(`${p.name} ${p.category}`))).toBe(true);
   });
 
   it('does not expand synonyms (synonym matching removed)', () => {
     // "womens" (no apostrophe) is not a literal token in any name/category — only the
     // removed synonym layer used to surface the women's line for it.
     expect(search('womens', realCatalog)).toEqual([]);
+  });
+});
+
+describe('fuzzy search', () => {
+  it('"shel" (deletion from "shell") matches shell products', () => {
+    const results = search('shel', realCatalog);
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.every((p) => /shell/i.test(`${p.name} ${p.category}`))).toBe(true);
+  });
+
+  it('"fleace" (substitution in "fleece") matches fleece products', () => {
+    const results = search('fleace', realCatalog);
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.every((p) => /fleece/i.test(`${p.name} ${p.category}`))).toBe(true);
+  });
+
+  it('exact matches still work alongside fuzzy', () => {
+    const exact = search('fleece', realCatalog);
+    const fuzzy = search('fleace', realCatalog);
+    expect(exact.length).toBeGreaterThan(0);
+    expect(exact).toEqual(fuzzy);
   });
 });
 

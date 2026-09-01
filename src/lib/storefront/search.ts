@@ -32,8 +32,8 @@ export function orderFacets(
 
 /**
  * Basic exact search: a product matches when every whitespace-separated query token is a
- * substring of its name or category (case-insensitive). No typo tolerance and no synonym
- * expansion — that richer matching is handled elsewhere.
+ * substring of its name or category (case-insensitive). Fuzzy matching tolerates single-character
+ * edits (Levenshtein distance ≤ 1) per token against individual words in the haystack.
  */
 export function search(query: string, catalog: Product[]): Product[] {
   const trimmed = query.trim();
@@ -42,6 +42,37 @@ export function search(query: string, catalog: Product[]): Product[] {
   const tokens = trimmed.toLowerCase().split(/\s+/).filter(Boolean);
   return catalog.filter((product) => {
     const haystack = `${product.name} ${product.category}`.toLowerCase();
-    return tokens.every((token) => haystack.includes(token));
+    const haystackWords = haystack.split(/\s+/).filter(Boolean);
+    return tokens.every(
+      (token) => haystack.includes(token) || haystackWords.some((word) => fuzzyMatch(token, word))
+    );
   });
+}
+
+/** Returns true when a and b are both purely alphabetic and within Levenshtein distance 1. */
+function fuzzyMatch(a: string, b: string): boolean {
+  if (!/^[a-z]+$/.test(a) || !/^[a-z]+$/.test(b)) return false;
+  return levenshtein(a, b) <= 1;
+}
+
+function levenshtein(a: string, b: string): number {
+  if (a === b) return 0;
+  if (a.length === 0) return b.length;
+  if (b.length === 0) return a.length;
+  // Early-exit: length difference alone exceeds budget of 1.
+  if (Math.abs(a.length - b.length) > 1) return 2;
+
+  const prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  const curr = new Array<number>(b.length + 1);
+  for (let i = 1; i <= a.length; i++) {
+    curr[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      curr[j] =
+        a[i - 1] === b[j - 1]
+          ? prev[j - 1]
+          : 1 + Math.min(prev[j - 1], prev[j], curr[j - 1]);
+    }
+    prev.splice(0, prev.length, ...curr);
+  }
+  return prev[b.length];
 }
