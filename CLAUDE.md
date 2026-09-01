@@ -16,10 +16,11 @@ point is the [`/work-on-task`](.claude/skills/work-on-task/SKILL.md) skill; the 
 
 Before writing code you must self-challenge your plan against the seeded
 [`standards/`](standards/) — one row per standard. Before pushing, `/precommit` re-lists them and
-you must confirm each. The two standards in this repo:
+you must confirm each. The three standards in this repo:
 
 - [Tests run against real services (no mocks)](standards/no-mocks.md)
 - [Leave touched files cleaner (campground rule, scoped)](standards/leave-files-cleaner.md)
+- [Hidden products never reach the storefront](standards/no-hidden-products-in-search.md)
 
 ## Commands
 

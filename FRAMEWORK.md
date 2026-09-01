@@ -77,10 +77,12 @@ agent is forced to answer to** at three checkpoints:
 4. **Re-confirmed at submit** — `precommit` re-lists the standards and refuses to push until the
    agent confirms each (the `confirmStandards` gate).
 
-The two principles this repo demonstrates:
+The three principles this repo demonstrates:
 
 - **[Tests run against real services (no mocks)](standards/no-mocks.md)**
 - **[Leave touched files cleaner (campground rule, scoped)](standards/leave-files-cleaner.md)**
+- **[Hidden products never reach the storefront](standards/no-hidden-products-in-search.md)** — the
+  security gate; a leak here publishes unreleased products to every shopper
 
 This is the demonstration: *our principles aren't a `CONTRIBUTING.md` nobody reads — they're a
 gate the agent literally cannot skip.*
