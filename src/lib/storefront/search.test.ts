@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
-import { orderFacets, search } from './search';
+import { orderFacets, search, fuzzyMatch } from './search';
 import type { Product } from '$lib/domain/product';
 import type { FacetOrder } from '$lib/domain/facets';
 
@@ -54,6 +54,59 @@ const defaultOrder: FacetOrder[] = [
   { facetKey: 'price', displayOrder: 1 },
   { facetKey: 'rating', displayOrder: 2 }
 ];
+
+// Pure unit test — fuzzyMatch has no I/O (receives inputs, computes Levenshtein distance),
+// so unit tests are allowed per ARCHITECTURE §4.1. No DB, no mocks.
+
+describe('fuzzy search matching', () => {
+  it('performs exact token match as baseline', () => {
+    const results = fuzzyMatch('jacket', realCatalog);
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.some((p) => p.name.toLowerCase().includes('jacket'))).toBe(true);
+  });
+
+  it('tolerates typos within Levenshtein distance threshold', () => {
+    // "shel" is distance 1 from "shell"; "jaket" is distance 1 from "jacket"
+    const results = fuzzyMatch('shel jaket', realCatalog, { maxDistance: 1 });
+    expect(results.length).toBeGreaterThan(0);
+    // Should find products with "shell" and "jacket" despite typos
+    expect(results.some((p) => p.name.toLowerCase().includes('shell') || p.name.toLowerCase().includes('jacket'))).toBe(true);
+  });
+
+  it('matches case-insensitive queries', () => {
+    const results = fuzzyMatch('JACKET', realCatalog);
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.every((p) => `${p.name} ${p.category}`.toLowerCase().includes('jacket'))).toBe(true);
+  });
+
+  it('performs partial token matching within distance threshold', () => {
+    // "jac" is distance 2 from "jacket"
+    const results = fuzzyMatch('jac', realCatalog, { maxDistance: 2 });
+    expect(results.length).toBeGreaterThan(0);
+  });
+
+  it('returns no matches when distance exceeds threshold', () => {
+    // "xyz" is distance too far from common product tokens
+    const results = fuzzyMatch('xyz', realCatalog, { maxDistance: 1 });
+    expect(results).toEqual([]);
+  });
+
+  it('returns empty results for empty query', () => {
+    const results = fuzzyMatch('', realCatalog);
+    expect(results).toEqual([]);
+  });
+
+  it('requires all query tokens to match (AND logic)', () => {
+    // Both "shell" and "jacket" should be present in matches
+    const results = fuzzyMatch('shell jacket', realCatalog, { maxDistance: 0 });
+    expect(
+      results.every((p) => {
+        const haystack = `${p.name} ${p.category}`.toLowerCase();
+        return haystack.includes('shell') && haystack.includes('jacket');
+      })
+    ).toBe(true);
+  });
+});
 
 describe('orderFacets', () => {
   it('orders available facets by the category displayOrder', () => {

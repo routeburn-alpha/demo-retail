@@ -2,6 +2,64 @@ import type { FacetOrder } from '$lib/domain/facets';
 import type { Product } from '$lib/domain/product';
 
 /**
+ * Compute Levenshtein distance between two strings.
+ * Pure logic with no I/O.
+ */
+function levenshteinDistance(a: string, b: string): number {
+  const aLower = a.toLowerCase();
+  const bLower = b.toLowerCase();
+  const matrix: number[][] = [];
+
+  for (let i = 0; i <= bLower.length; i++) {
+    matrix[i] = [i];
+  }
+
+  for (let j = 0; j <= aLower.length; j++) {
+    matrix[0][j] = j;
+  }
+
+  for (let i = 1; i <= bLower.length; i++) {
+    for (let j = 1; j <= aLower.length; j++) {
+      const cost = bLower[i - 1] === aLower[j - 1] ? 0 : 1;
+      matrix[i][j] = Math.min(
+        matrix[i][j - 1] + 1, // insertion
+        matrix[i - 1][j] + 1, // deletion
+        matrix[i - 1][j - 1] + cost // substitution
+      );
+    }
+  }
+
+  return matrix[bLower.length][aLower.length];
+}
+
+/**
+ * Fuzzy search: matches products where every query token fuzzy-matches a token in
+ * the product name or category within a Levenshtein distance threshold.
+ * Pure logic with no I/O — allowed per ARCHITECTURE §4.1.
+ */
+export function fuzzyMatch(
+  query: string,
+  catalog: Product[],
+  options: { maxDistance?: number } = {}
+): Product[] {
+  const trimmed = query.trim();
+  if (!trimmed) return [];
+
+  const maxDistance = options.maxDistance ?? 0;
+  const queryTokens = trimmed.toLowerCase().split(/\s+/).filter(Boolean);
+
+  return catalog.filter((product) => {
+    const haystack = `${product.name} ${product.category}`.toLowerCase();
+    const haystackTokens = haystack.split(/\s+/).filter(Boolean);
+
+    // Every query token must match at least one haystack token within maxDistance
+    return queryTokens.every((queryToken) =>
+      haystackTokens.some((haystackToken) => levenshteinDistance(queryToken, haystackToken) <= maxDistance)
+    );
+  });
+}
+
+/**
  * Order the facets available for the current results by a category's configured ordering,
  * falling back to the default ordering. Pure (no I/O) — the caller (`+page.server.ts`) loads
  * `categoryOrder` / `defaultOrder` via the facet-ordering port and passes them in.
