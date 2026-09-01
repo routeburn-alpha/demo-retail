@@ -49,6 +49,7 @@ serve the agent the same way at runtime — the seeding step is the only differe
 |------|-------|------------------|
 | [`no-mocks.md`](no-mocks.md) | Tests Run Against Real Services | Real DB / real components in tests; no mocked fetch or fake backends |
 | [`leave-files-cleaner.md`](leave-files-cleaner.md) | Leave Touched Files Cleaner | Campground rule, scoped to files the task already opens |
+| [`no-hidden-products-in-search.md`](no-hidden-products-in-search.md) | Hidden Products Never Reach the Storefront | Every path serving product data applies the core filter; `elsewhere` / hidden / inactive rows never reach a browser |
 
 ## File format
 
