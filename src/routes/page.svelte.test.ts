@@ -66,9 +66,9 @@ describe('Routeburn storefront', () => {
     await expect.element(screen.getByRole('link', { name: 'ROUTEBURN' })).toBeVisible();
   });
 
-  it('the hero tagline reads "Built for the long way home"', async () => {
+  it('the hero tagline reads "Built for the long cold Denver winter"', async () => {
     const screen = render(StorefrontPage, { data });
-    await expect.element(screen.getByRole('heading', { level: 1, name: 'Built for the long way home' })).toBeVisible();
+    await expect.element(screen.getByRole('heading', { level: 1, name: 'Built for the long cold Denver winter' })).toBeVisible();
   });
 
   it('the hero banner has a Routeburn trail backdrop image', async () => {
