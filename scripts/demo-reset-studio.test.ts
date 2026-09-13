@@ -17,11 +17,11 @@ const FIXTURE_NAME = `fuzzy search reset-test ${RUN_ID}`;
 
 let fixtureNumber = 0;
 
-/** Create the throwaway fuzzy idea this run asserts on. Returns its idea number. */
-async function createFixture(): Promise<number> {
+/** Create a throwaway fuzzy idea this run asserts on. Returns its idea number. */
+async function createFixture(name: string = FIXTURE_NAME): Promise<number> {
   const text = await callTool('create_idea', {
     productCode: PRODUCT,
-    name: FIXTURE_NAME,
+    name,
     hypothesis: `Throwaway fixture for demo-reset-studio integration run ${RUN_ID}. Safe to delete.`,
     validationStatus: 'Building'
   });
@@ -30,9 +30,28 @@ async function createFixture(): Promise<number> {
   return Number(m[1]);
 }
 
-/** Best-effort cleanup — the fixture may already be gone, which is the success case. */
+/**
+ * Best-effort cleanup — the fixture may already be gone, which is the success case.
+ *
+ * Scrub, THEN delete. `delete_idea` is a soft delete, so a merely-deleted fixture survives as
+ * Archived and is still returned by Knowledge-backed search — which is how every past run left
+ * one more `fuzzy search reset-test` idea in the demo chat's results. Scrubbing is safe on an
+ * already-archived record, which matters because the `--apply` test deletes the shared fixture
+ * before `afterAll` gets to it.
+ */
 async function destroyFixture(n: number): Promise<void> {
   if (!n) return;
+  try {
+    await callTool('update_idea', {
+      productCode: PRODUCT,
+      ideaNumber: n,
+      name: `Archived test fixture ${n}`,
+      hypothesis: 'Archived demo artefact. Content cleared so it cannot surface in demo search results.',
+      technicalDesign: 'Archived demo artefact. Content cleared so it cannot surface in demo search results.'
+    });
+  } catch {
+    /* scrub is best-effort — still attempt the delete below */
+  }
   try {
     await callTool('delete_idea', { productCode: PRODUCT, ideaNumber: n });
   } catch {
@@ -91,5 +110,21 @@ describe.skipIf(!hasCredentials())('demo-reset-studio (real studio-ai MCP over H
 
     const second = await resetStudio({ product: PRODUCT, apply: true, only: { ideas: [fixtureNumber] } });
     expect(second.ideas).toEqual([]);
+  }, 20_000);
+
+  // The leak this guards: `delete_idea` is a SOFT delete, so a merely-deleted fixture survives
+  // as Archived — and archived records are STILL returned by Knowledge-backed search, which is
+  // what the demo chat queries. Every test run therefore left one more `fuzzy search reset-test`
+  // idea in the demo's search results and the pile only ever grew (8 of them by 2026-09-13).
+  //
+  // Asserted by reading the record straight back rather than by querying search: a freshly
+  // created idea is not in the Knowledge index yet, so a search-based assertion passes
+  // vacuously and proves nothing. This reads the artefact itself, which is never stale.
+  it('scrubs the fixture text before deleting, leaving no fuzzy remnant', async () => {
+    const leaked = await createFixture(`${FIXTURE_NAME} leak`);
+    await destroyFixture(leaked);
+
+    const detail = await callTool('get_idea', { productCode: PRODUCT, ideaNumber: leaked });
+    expect(detail).not.toMatch(/fuzzy|typo|levenshtein/i);
   }, 20_000);
 });

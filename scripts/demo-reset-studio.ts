@@ -36,11 +36,15 @@ const FUZZY_NAME = /fuzzy|typo|levenshtein|edit\s*distance/i;
  */
 export const PROTECTED_NAME = /demo[-\s]?reset|search baseline/i;
 
-/** A soft-deleted idea comes back from `search` as Archived — treat it as already reset,
- *  which is what makes a second run a no-op. */
+/** Belt and braces: the queryless listings below already exclude archived records, but an
+ *  archived idea still prints its status, so drop it explicitly rather than relying on that. */
 const ALREADY_RESET = new Set(['archived']);
 
 const DEFAULT_PRODUCT = 'search';
+
+/** Overwritten into an artefact's text before it is deleted. See `scrub()`. */
+const SCRUBBED =
+  'Archived demo artefact. Content cleared so it cannot surface in demo search results.';
 
 export interface StudioItem {
   number: number;
@@ -70,68 +74,122 @@ export interface ResetOptions {
   only?: { ideas?: number[]; tasks?: number[] };
 }
 
-const ITEM_LINE = /^\s*(Idea|Task) #(\d+):\s*(.*)$/;
+const ITEM_LINE = /^\s*#(\d+):\s*(.*)$/;
 
 /**
- * Parse one `search` result line into an item.
+ * Parse one `get_ideas` / `get_tasks` result line into an item.
  *
  * Lines look like:
- *   `  Idea #1071: Fuzzy search for typos (Archived) — matched: "…"`
- *   `  Task #1139: Implement fuzzy matching in search() (shipped) [idea #1069 — …]`
+ *   idea: `  #1115: Support typo tolerance in search (Archived) [owner: Cassandra Shum]`
+ *   task: `  #1161: Implement fuzzy matching in search() [managedHaiku] [owner: C S] (Idea #1110: …)`
  *
- * The status is the LAST parenthesised group, but a name can itself end in `()` — hence
- * `[^()]+`, which cannot swallow `search()`.
+ * Tasks carry no status in this listing, so `status` is '' for them. That is not lossy: the
+ * queryless listing returns only live records, so there is no archived task to filter out.
+ *
+ * For an idea the status is the LAST parenthesised group, but a name can itself end in `()` —
+ * hence `[^()]+`, which cannot swallow `search()`.
  */
-export function parseItemLine(line: string): { kind: 'Idea' | 'Task'; item: StudioItem } | null {
+export function parseItemLine(line: string, kind: 'Idea' | 'Task'): StudioItem | null {
   const m = line.match(ITEM_LINE);
   if (!m) return null;
 
-  const rest = m[3]
-    .split(' — matched:')[0] // drop the search-snippet suffix
-    .replace(/\s*\[[^\]]*\]\s*$/, ''); // drop the trailing [idea #N — …] annotation
+  // A task's trailing `(Idea #N: …)` annotation, then any number of `[agent]` / `[owner: …]`.
+  let rest = m[2].replace(/\s*\(Idea #\d+:[^)]*\)\s*$/, '');
+  const TRAILING_BRACKET = /\s*\[[^\]]*\]\s*$/;
+  while (TRAILING_BRACKET.test(rest)) rest = rest.replace(TRAILING_BRACKET, '');
+
+  if (kind === 'Task') return { number: Number(m[1]), name: rest.trim(), status: '' };
 
   const withStatus = rest.match(/^(.*)\s\(([^()]+)\)\s*$/);
   if (!withStatus) return null;
+  return { number: Number(m[1]), name: withStatus[1].trim(), status: withStatus[2].trim() };
+}
 
-  return {
-    kind: m[1] as 'Idea' | 'Task',
-    item: { number: Number(m[2]), name: withStatus[1].trim(), status: withStatus[2].trim() }
-  };
+/**
+ * Every line of a product's full listing, following `Next cursor:` to the end.
+ *
+ * Deliberately QUERYLESS. The previous implementation called a `search` tool that the studio-ai
+ * server does not expose — the call errored, `discoverResettable` swallowed it per-query, and so
+ * discovery returned nothing forever while the reset cheerfully reported "already clean". That is
+ * why the Studio half silently stopped working. Queryless `get_ideas` / `get_tasks` also return
+ * only LIVE records, which is exactly what a reset wants: an archived artefact is already reset,
+ * and query-backed search would drag every one of them back in.
+ *
+ * Errors now propagate — `main()` turns them into a visible warning plus the manual checklist,
+ * which is the failure mode that should have happened the first time.
+ */
+async function listAll(tool: 'get_ideas' | 'get_tasks', product: string): Promise<string[]> {
+  const lines: string[] = [];
+  let cursor: string | undefined;
+
+  // Bounded so a malformed cursor cannot spin forever. 100 records a page — no demo product is
+  // remotely near the 1000 that ten pages allow.
+  for (let page = 0; page < 10; page++) {
+    const args: Record<string, unknown> = { productCode: product, pageSize: 100 };
+    if (cursor) args.cursor = cursor;
+
+    const text = await callTool(tool, args);
+    lines.push(...text.split('\n'));
+
+    const next = text.match(/^Next cursor:\s*(\S+)\s*$/m);
+    if (!next) break;
+    cursor = next[1];
+  }
+  return lines;
 }
 
 /** Fuzzy-demo ideas/tasks that are still live (not already reset) and not protected. */
 export async function discoverResettable(
   product: string = DEFAULT_PRODUCT
 ): Promise<{ ideas: StudioItem[]; tasks: StudioItem[] }> {
-  const ideas = new Map<number, StudioItem>();
-  const tasks = new Map<number, StudioItem>();
+  const ideas: StudioItem[] = [];
+  const tasks: StudioItem[] = [];
 
-  // Several queries because `search` is a substring match — "fuzzy" alone misses an idea
-  // titled only "Typo tolerance …". Results are unioned and de-duped by number.
-  for (const query of ['fuzzy', 'typo', 'levenshtein']) {
-    let text: string;
-    try {
-      text = await callTool('search', { productCode: product, query, limit: 50 });
-    } catch {
-      continue; // one failed query shouldn't blind the others
-    }
-
-    for (const line of text.split('\n')) {
-      const parsed = parseItemLine(line);
-      if (!parsed) continue;
-      const { kind, item } = parsed;
+  for (const [tool, kind, out] of [
+    ['get_ideas', 'Idea', ideas],
+    ['get_tasks', 'Task', tasks]
+  ] as const) {
+    for (const line of await listAll(tool, product)) {
+      const item = parseItemLine(line, kind);
+      if (!item) continue;
 
       if (!FUZZY_NAME.test(item.name)) continue;
       if (ALREADY_RESET.has(item.status.toLowerCase())) continue;
-
       if (PROTECTED_NAME.test(item.name)) continue;
 
-      if (kind === 'Idea') ideas.set(item.number, item);
-      else tasks.set(item.number, item);
+      out.push(item);
     }
   }
 
-  return { ideas: [...ideas.values()], tasks: [...tasks.values()] };
+  return { ideas, tasks };
+}
+
+/**
+ * Blank an artefact's text before it is deleted.
+ *
+ * `delete_idea` / `delete_task` are SOFT deletes: the record survives as Archived, and archived
+ * records are still returned by the Knowledge-backed search the demo chat uses. Deleting alone
+ * therefore left every run's fuzzy artefacts in the demo's search results forever, and the pile
+ * only ever grew. Overwriting the name and body first means the remnant matches nothing.
+ */
+async function scrub(product: string, kind: 'idea' | 'task', item: StudioItem): Promise<void> {
+  const name = `Archived demo artefact ${item.number}`;
+  if (kind === 'idea') {
+    await callTool('update_idea', {
+      productCode: product,
+      ideaNumber: item.number,
+      name,
+      hypothesis: SCRUBBED,
+      technicalDesign: SCRUBBED
+    });
+  } else {
+    await callTool('update_task', {
+      productCode: product,
+      taskNumber: item.number,
+      name,
+      specification: SCRUBBED
+    });
+  }
 }
 
 /** Discover, then (with `apply`) soft-delete. Idempotent: a second run finds nothing. */
@@ -158,6 +216,7 @@ export async function resetStudio(opts: ResetOptions = {}): Promise<ResetResult>
 
   for (const idea of ideas) {
     try {
+      await scrub(product, 'idea', idea);
       await callTool('delete_idea', { productCode: product, ideaNumber: idea.number });
       deletedIdeas.push(idea);
     } catch (e) {
@@ -167,6 +226,7 @@ export async function resetStudio(opts: ResetOptions = {}): Promise<ResetResult>
 
   for (const task of tasks) {
     try {
+      await scrub(product, 'task', task);
       await callTool('delete_task', { productCode: product, taskNumber: task.number });
       deletedTasks.push(task);
     } catch (e) {
