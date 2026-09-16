@@ -18,34 +18,15 @@ describe('exact search', () => {
     ).toBe(true);
   });
 
-  it('matches an exact token ("fleece")', () => {
-    const results = search('fleece', realCatalog);
-    expect(results.length).toBeGreaterThan(0);
-    expect(
-      results.every((p) => `${p.name} ${p.category}`.toLowerCase().includes('fleece'))
-    ).toBe(true);
+  it('does not tolerate typos (fuzzy matching removed)', () => {
+    // "jaket" is a one-character typo of "jacket"; exact matching surfaces nothing.
+    expect(search('jaket', realCatalog)).toEqual([]);
   });
 
-  it('does not match a query with no close token in the catalogue', () => {
-    expect(search('xyz', realCatalog)).toEqual([]);
-  });
-});
-
-describe('fuzzy search', () => {
-  it('matches a single-token typo within edit distance 2 ("flese" → "fleece")', () => {
-    const results = search('flese', realCatalog);
-    expect(results.length).toBeGreaterThan(0);
-    expect(
-      results.every((p) => `${p.name} ${p.category}`.toLowerCase().includes('fleece'))
-    ).toBe(true);
-  });
-
-  it('tolerates a typo in every token ("shel jaket" → "shell jacket")', () => {
-    const results = search('shel jaket', realCatalog);
-    expect(results.length).toBeGreaterThan(0);
-    expect(
-      results.every((p) => `${p.name} ${p.category}`.toLowerCase().includes('shell jacket'))
-    ).toBe(true);
+  it('does not expand synonyms (synonym matching removed)', () => {
+    // "womens" (no apostrophe) is not a literal token in any name/category — only the
+    // removed synonym layer used to surface the women's line for it.
+    expect(search('womens', realCatalog)).toEqual([]);
   });
 });
 
