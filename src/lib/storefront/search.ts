@@ -30,34 +30,10 @@ export function orderFacets(
     .map((entry) => entry.facetKey);
 }
 
-const FUZZY_MAX_DISTANCE = 2;
-
 /**
- * Levenshtein edit distance (insertions, deletions, substitutions) between two strings.
- * Pure, no I/O.
- */
-export function levenshteinDistance(a: string, b: string): number {
-  const rows = a.length + 1;
-  const cols = b.length + 1;
-  const dp: number[][] = Array.from({ length: rows }, () => new Array(cols).fill(0));
-
-  for (let i = 0; i < rows; i++) dp[i][0] = i;
-  for (let j = 0; j < cols; j++) dp[0][j] = j;
-
-  for (let i = 1; i < rows; i++) {
-    for (let j = 1; j < cols; j++) {
-      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-      dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost);
-    }
-  }
-
-  return dp[rows - 1][cols - 1];
-}
-
-/**
- * Search: a product matches when every whitespace-separated query token is either a substring
- * of its name or category (exact match), or within edit distance {@link FUZZY_MAX_DISTANCE} of
- * one of its name/category words (fuzzy match, for typo tolerance).
+ * Basic exact search: a product matches when every whitespace-separated query token is a
+ * substring of its name or category (case-insensitive). No typo tolerance and no synonym
+ * expansion — that richer matching is handled elsewhere.
  */
 export function search(query: string, catalog: Product[]): Product[] {
   const trimmed = query.trim();
@@ -66,11 +42,6 @@ export function search(query: string, catalog: Product[]): Product[] {
   const tokens = trimmed.toLowerCase().split(/\s+/).filter(Boolean);
   return catalog.filter((product) => {
     const haystack = `${product.name} ${product.category}`.toLowerCase();
-    const words = haystack.split(/\s+/);
-    return tokens.every(
-      (token) =>
-        haystack.includes(token) ||
-        words.some((word) => levenshteinDistance(token, word) <= FUZZY_MAX_DISTANCE)
-    );
+    return tokens.every((token) => haystack.includes(token));
   });
 }
