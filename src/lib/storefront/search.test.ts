@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
-import { orderFacets, search } from './search';
+import { isFuzzyMatch, levenshteinDistance, orderFacets, search } from './search';
 import type { Product } from '$lib/domain/product';
 import type { FacetOrder } from '$lib/domain/facets';
 
@@ -94,5 +94,36 @@ describe('orderFacets', () => {
 
   it('returns an empty array when nothing is available', () => {
     expect(orderFacets([], tentOrder, defaultOrder)).toEqual([]);
+  });
+});
+
+// Pure unit tests — levenshteinDistance/isFuzzyMatch have no I/O, allowed per
+// standards/no-mocks.md (search.ts is named there as the example of no-I/O logic).
+
+describe('levenshteinDistance', () => {
+  it('counts a single substitution', () => {
+    expect(levenshteinDistance('jaket', 'jacket')).toBe(1);
+  });
+
+  it('counts a single insertion', () => {
+    expect(levenshteinDistance('shel', 'shell')).toBe(1);
+  });
+
+  it('counts a single deletion', () => {
+    expect(levenshteinDistance('fleese', 'fleece')).toBe(1);
+  });
+
+  it('returns the full edit distance for unrelated strings', () => {
+    expect(levenshteinDistance('xyz', 'abc')).toBe(3);
+  });
+});
+
+describe('isFuzzyMatch', () => {
+  it('matches a token within the default distance threshold', () => {
+    expect(isFuzzyMatch('jaket', 'jacket')).toBe(true);
+  });
+
+  it('does not match a token that exceeds the default distance threshold', () => {
+    expect(isFuzzyMatch('jaket', 'shell')).toBe(false);
   });
 });
