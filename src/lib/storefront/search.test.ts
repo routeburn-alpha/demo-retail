@@ -18,15 +18,42 @@ describe('exact search', () => {
     ).toBe(true);
   });
 
-  it('does not tolerate typos (fuzzy matching removed)', () => {
-    // "jaket" is a one-character typo of "jacket"; exact matching surfaces nothing.
-    expect(search('jaket', realCatalog)).toEqual([]);
+  it('does not expand synonyms', () => {
+    // "ladies" is a genuine synonym for "women's" but spelled nothing alike, so no
+    // edit-distance tolerance should surface the women's line for it either.
+    expect(search('ladies', realCatalog)).toEqual([]);
+  });
+});
+
+describe('fuzzy search (edit-distance tolerant)', () => {
+  const isShellJacket = (p: Product) => p.category === 'shell jacket';
+
+  it('tolerates a missing/extra letter per token: "shel jaket" matches "shell jacket"', () => {
+    const results = search('shel jaket', realCatalog);
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.every(isShellJacket)).toBe(true);
   });
 
-  it('does not expand synonyms (synonym matching removed)', () => {
-    // "womens" (no apostrophe) is not a literal token in any name/category — only the
-    // removed synonym layer used to surface the women's line for it.
-    expect(search('womens', realCatalog)).toEqual([]);
+  it('tolerates a transposition: "sehll jacket" matches "shell jacket"', () => {
+    const results = search('sehll jacket', realCatalog);
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.every(isShellJacket)).toBe(true);
+  });
+
+  it('tolerates a missing character: "shell jacet" matches "shell jacket"', () => {
+    const results = search('shell jacet', realCatalog);
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.every(isShellJacket)).toBe(true);
+  });
+
+  it('still matches the exact spelling: "shell jacket"', () => {
+    const results = search('shell jacket', realCatalog);
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.every(isShellJacket)).toBe(true);
+  });
+
+  it('does not surface false positives for unrelated text', () => {
+    expect(search('xyz', realCatalog)).toEqual([]);
   });
 });
 

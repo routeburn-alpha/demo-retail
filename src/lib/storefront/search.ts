@@ -30,10 +30,41 @@ export function orderFacets(
     .map((entry) => entry.facetKey);
 }
 
+/** Levenshtein distance between two whole strings (insert/delete/substitute, cost 1 each). */
+function levenshtein(a: string, b: string): number {
+  if (a.length === 0) return b.length;
+  if (b.length === 0) return a.length;
+
+  let prevRow = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const row = [i];
+    for (let j = 1; j <= b.length; j++) {
+      const substitutionCost = a[i - 1] === b[j - 1] ? 0 : 1;
+      row[j] = Math.min(prevRow[j] + 1, row[j - 1] + 1, prevRow[j - 1] + substitutionCost);
+    }
+    prevRow = row;
+  }
+  return prevRow[b.length];
+}
+
+/** Shorter tokens get less typo tolerance so a couple of stray letters don't match everything. */
+function fuzzyTolerance(tokenLength: number): number {
+  if (tokenLength <= 2) return 0;
+  if (tokenLength <= 4) return 1;
+  return 2;
+}
+
+/** Splits a haystack into words, keeping apostrophes (so "women's" stays one word). */
+function words(text: string): string[] {
+  return text.split(/[^a-z0-9']+/).filter(Boolean);
+}
+
 /**
- * Basic exact search: a product matches when every whitespace-separated query token is a
- * substring of its name or category (case-insensitive). No typo tolerance and no synonym
- * expansion — that richer matching is handled elsewhere.
+ * Fuzzy search: a product matches when every whitespace-separated query token is within
+ * edit-distance tolerance of some word in its name or category (case-insensitive). Tolerates
+ * typos, transpositions, and missing/extra characters per token; exact matches still work since
+ * they're distance 0. Word-level (rather than raw-substring) comparison keeps a short typo token
+ * from cheaply aligning against an unrelated word elsewhere in the haystack.
  */
 export function search(query: string, catalog: Product[]): Product[] {
   const trimmed = query.trim();
@@ -41,7 +72,10 @@ export function search(query: string, catalog: Product[]): Product[] {
 
   const tokens = trimmed.toLowerCase().split(/\s+/).filter(Boolean);
   return catalog.filter((product) => {
-    const haystack = `${product.name} ${product.category}`.toLowerCase();
-    return tokens.every((token) => haystack.includes(token));
+    const haystackWords = words(`${product.name} ${product.category}`.toLowerCase());
+    return tokens.every((token) => {
+      const tolerance = fuzzyTolerance(token.length);
+      return haystackWords.some((word) => levenshtein(token, word) <= tolerance);
+    });
   });
 }
