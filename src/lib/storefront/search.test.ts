@@ -18,15 +18,29 @@ describe('exact search', () => {
     ).toBe(true);
   });
 
-  it('does not tolerate typos (fuzzy matching removed)', () => {
-    // "jaket" is a one-character typo of "jacket"; exact matching surfaces nothing.
-    expect(search('jaket', realCatalog)).toEqual([]);
+  // NB: "womens" (no apostrophe) used to be pinned as a non-match here, back when the only
+  // removed layer that could have surfaced it was a dedicated synonym map. Prefix-fuzzy matching
+  // (this task) now legitimately surfaces it too — "womens" is edit distance 1 from "women's" in
+  // "Aurora Women's 3L Shell" (drop the apostrophe), the same one-edit tolerance that makes "shel
+  // jaket" work. That's typo tolerance doing its job, not synonym expansion coming back.
+});
+
+describe('typo-tolerant search', () => {
+  it('tolerates a one-character typo per token: "shel jaket" surfaces the shell-jacket products', () => {
+    // "shel" is a literal prefix of "shell" (exact path); "jaket" is a one-edit (missing "c")
+    // typo of "jacket" (fuzzy path). Verified against the real catalogue per docs/DEMO-NARRATION.md.
+    const results = search('shel jaket', realCatalog);
+    expect(results.map((p) => p.name).sort()).toEqual(["Aurora Women's 3L Shell", 'Storm Cirrus Shell']);
   });
 
-  it('does not expand synonyms (synonym matching removed)', () => {
-    // "womens" (no apostrophe) is not a literal token in any name/category — only the
-    // removed synonym layer used to surface the women's line for it.
-    expect(search('womens', realCatalog)).toEqual([]);
+  it('tolerates a one-character typo mid-word: "hikng boot" surfaces the hiking boot', () => {
+    // "hikng" is missing the second "i" from "hiking" — one deletion, edit distance 1.
+    const results = search('hikng boot', realCatalog);
+    expect(results.map((p) => p.name)).toEqual(['Routeburn Mid GTX']);
+  });
+
+  it('does not match a token with no reasonably close word in the catalogue', () => {
+    expect(search('zzzqqxx', realCatalog)).toEqual([]);
   });
 });
 
