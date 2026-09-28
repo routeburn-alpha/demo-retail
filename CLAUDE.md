@@ -25,12 +25,18 @@ you must confirm each. The three standards in this repo:
 ## Commands
 
 ```bash
-bash .studio-ai/warm.sh     # Prepare the environment — install, database, types, build, test once
-npm run dev                 # SvelteKit dev server (vite)
-npm run test                # Vitest — component + server/db integration tests
-npm run check               # svelte-check (app) + tsc on the framework's own code (sdlc/, scripts/)
-npm run build               # Production build
+bash .studio-ai/warm.sh         # Prepare the environment — install, database, types, build, test once
+bash .studio-ai/ship.sh "msg"   # Commit, rebase, check, build, test, push — the whole gate
+npm run dev                     # SvelteKit dev server (vite)
+npm run test                    # Vitest — component + server/db integration tests
+npm run check                   # svelte-check (app) + tsc on sdlc/ and scripts/
+npm run build                   # Production build
 ```
+
+**Two scripts bracket the work: `warm.sh` prepares, `ship.sh` ships.** Both exist because a fixed
+sequence with no judgement in it should not be executed one turn at a time. Don't hand-run the gate
+before `ship.sh` — it runs `check`, `build` and `test` itself, and running the suite twice a minute
+apart tells you nothing new.
 
 **Setting up is one command: `.studio-ai/warm.sh`.** It installs, starts and seeds a local Postgres,
 generates SvelteKit's types, builds, and runs the suite once. Do not assemble that by hand, and do

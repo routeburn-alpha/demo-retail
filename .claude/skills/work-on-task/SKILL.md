@@ -85,11 +85,9 @@ Read the log and paste the failure verbatim. A green run = a broken test; redesi
 Minimum code to pass the test. Edit any callsites from 5d in the same pass.
 
 ### 8. Broaden the test net
-Remove `.only`. Run the full suite:
-```bash
-npm run test 2>&1 | tee logs/test-full.log
-```
-Fix anything that broke.
+Remove `.only`. Don't run the full suite here — `/precommit` runs it, along with `check` and
+`build`, as one gate. Running it in both places is the same suite twice, a minute apart, for no new
+information.
 
 ### 9. Run the change end-to-end
 Tests aren't enough for UI. Start the dev server on any free port and drive the golden path:
