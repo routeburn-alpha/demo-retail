@@ -52,8 +52,8 @@ npm run build
 
 # One run leaves the test runner (and Chromium) warm and proves the environment works before a task
 # depends on it. Output goes to a file, not the transcript: CLAUDE.md asks for that anyway, and the
-# suite prints benign git messages (`fatal: expected 'acknowledgments'...` from the demo-reset
-# fixtures) that a caller scanning output for failure strings will read as a real failure.
+# demo-reset fixtures print benign git plumbing messages that a caller scanning output for failure
+# strings would read as a real failure.
 echo "[warm] test"
 mkdir -p logs
 if npm run test > logs/warm-test.log 2>&1; then
