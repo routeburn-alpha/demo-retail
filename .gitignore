@@ -17,3 +17,4 @@ static/products/originals
 .DS_Store
 .env*.local
 .claude/settings.local.json
+.studio-warm.md
