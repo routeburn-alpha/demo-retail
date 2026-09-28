@@ -1,29 +1,24 @@
 ---
 name: precommit
-description: Safe pre-commit workflow. Runs the full pipeline (check, build, tests), confirms standards, presents the review gate, then pushes on approval. Use this instead of git push directly.
+description: Safe pre-commit workflow. Runs the full pipeline (check, build, tests), confirms standards, pushes the branch and submits the task for review. Use this instead of git push directly.
 ---
 
 # Precommit Skill
 
 The ONLY way to push code. Enforces the SDLC: active task, standards confirmed, green build, green
-tests. This is the push + review-gate + merge tail of the human SDLC; the shared core lives in
+tests. This is the push-and-submit tail of the SDLC; the shared core lives in
 [`sdlc/core.md`](../../../sdlc/core.md).
+
+**One path**, whoever is working the task. The run ends at review — you never merge.
 
 ## Flow
 
-### 1. Verify active task + branch precondition
-Find the studio-ai task this agent moved to `inProgress` (`get_tasks` with `status: inProgress` /
-`owner: me`).
-- **None found:** warn that pushing without a task bypasses the SDLC; ask to continue or pick a
-  task. If continuing, skip the standards confirmation in Step 4.
-- **Identity:** resolve this agent's name from the worktree, never from the shell —
-  `AGENT_NAME=$(npx tsx scripts/studio-poll.ts whoami | cut -d' ' -f1)`. That command reads
-  `.claude/settings.local.json` and exits nonzero if the settings file and the checkout disagree.
-  Do **not** read `$AGENT_NAME` out of the environment: a value inherited from another worktree's
-  shell is itself a registered agent name, so it is obeyed silently instead of erroring.
-- **Branch:** `git rev-parse --abbrev-ref HEAD` must be the agent branch (`agent/$AGENT_NAME`,
-  resolved as above). If HEAD is already a `{id}-…` PR branch, **abort** — ask whether the prior PR
-  should merge/close first. Step 3 branches off the agent branch, not off another PR branch.
+### 1. Verify active task + branch
+- **Task:** read the task you are working with `get_task`. If you don't have one, say that pushing
+  without a task bypasses the SDLC, and ask whether to continue. If you continue, skip the
+  standards confirmation in Step 3.
+- **Branch:** `git rev-parse --abbrev-ref HEAD` must not be `main`. If it is, create the branch now
+  (`claude/<taskNumber>-<slug>`, or the name you were given) and carry your work onto it.
 
 ### 2. Run the pipeline
 Rebase on main, then run the full gate — all three must be green:
@@ -46,62 +41,41 @@ meets it. Print a confirmation line per standard:
 If any standard is not met, **stop and fix it** — do not proceed to push. This is the second touch
 of the standards gate (the first was the self-challenge in `/work-on-task`).
 
-### 4. Push & open PR
+A standard you could not verify is not met. If the suite skipped the tests that prove it — which is
+what happens with no `DATABASE_URL`, and the `security` project reports green either way — say so
+here instead of claiming the standard holds.
+
+### 4. Push and submit
 ```bash
-TASK_ID=<id from Step 1>
-SLUG=<short kebab-case slug>
-PR_BRANCH="${TASK_ID}-${SLUG}"
-AGENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-git checkout -b "$PR_BRANCH" && git push -u origin "$PR_BRANCH"
-gh pr create --base main --head "$PR_BRANCH" --title "$TASK_ID <description>" --body "Task: <product> #<taskNumber>"
+git push -u origin "$(git rev-parse --abbrev-ref HEAD)"
 ```
-Record the PR URL, then link it to the studio task with `submit_for_review` (moves the task to
-`review` and assigns reviewers on the PR). Pass **`agentName` explicitly**, using the name resolved
-in Step 1: the tool's documented auto-fill reads the ambient `AGENT_NAME`, which is the value that
-leaks between worktrees — letting it auto-fill records the work against whichever agent's shell
-happened to launch the session.
+Then call `finalize_task` with the branch name, the repo, the `productCode` and a `buildReport`. It
+opens the PR through the GitHub App and moves the task to `review` in one call — you do not need
+`gh pr create`, and you do not need a separate `submit_for_review`.
 
-### 5. Review gate — the ONLY human interaction
-Present together, as a status report (not a question at the keyboard user):
-1. **PR link** — for the diff review.
-2. **Diff stat** — files changed + one-line description, with the task id.
-3. **Local URLs (required for UI changes)** — e.g. `http://localhost:$PORT/...` for each state that
-   matters, where `PORT="$(npx tsx scripts/studio-poll.ts port)"`. Resolve it that way rather than
-   from `$AGENT_PORT`, which the shell may have carried in from another worktree.
+The `buildReport` is the handover, so write it properly:
+- **summary** — one short paragraph: the actual shape of the change. Becomes the PR body.
+- **testingSteps** — how to exercise it.
+- **verificationPath** — the route where it's visible.
+- **decisions** — judgement calls the spec didn't cover.
+- **learnings** — what the next task needs to know.
 
-Say "Awaiting review on the PR." Wait for explicit approval before merging. On feedback: make
-changes, `git commit --amend --no-edit`, re-run Step 2, `git push --force-with-lease`, re-present.
+Omit any field with nothing real in it. **Never create follow-on tasks autonomously** — list
+candidates in `learnings`.
 
-### 6. Merge & reset
-On approval. **Checkout the agent branch before merging and avoid `gh --delete-branch`:** `main` is
-checked out in a sibling worktree, so `gh`'s post-merge `git checkout main` would be refused
-(`fatal: 'main' is already used by worktree ...`). Get off the PR branch first and delete branches
-explicitly so `gh` never touches local git state:
-`main` requires the four CI checks (`check`, `build`, `test`, `security`), so the merge is refused
-while a run is still in flight. **Wait for the run before merging** — do not use
-`gh pr merge --auto`, which returns immediately and would let the lines below delete the PR branch
-out from under a merge that had not fired yet:
-```bash
-git checkout "$AGENT_BRANCH"                                  # leave the PR branch BEFORE merging
-gh pr checks "$PR_BRANCH" --watch --fail-fast                 # block until all four checks report
-gh pr merge "$PR_BRANCH" --squash                             # remote squash-merge only — no local git ops
-git push origin --delete "$PR_BRANCH" 2>/dev/null || true    # delete the remote PR branch explicitly
-git fetch origin main && git reset --hard origin/main         # agent branch now mirrors main exactly
-git branch -D "$PR_BRANCH" 2>/dev/null || true                # delete the local PR branch
-```
-**Do not set the task status by hand.** The PR-merge webhook transitions `review → releasing`, and
-`deployment_status` takes it on to `shipped`. `done` is not a valid status, and `update_task` says
-explicitly not to call it after a merge. Just confirm the transition landed with `get_tasks`.
+### 5. Stop
+The run is over. Say what you shipped, with the PR link.
 
-### 7. Build report
-Post a build report as a comment on the studio task (`create_comment`) — three sections from the
-core's `renderBuildReport`: **How we implemented it**, **Decisions off-spec**, **Learnings**. Omit
-empty sections. **Never auto-create follow-on tasks** — list candidates as bullets in the
-learnings; ask the user whether to create any.
+**You do not merge, and there is nothing to wait for.** Review and merge belong to a person,
+whether or not one is watching now. `main` requires four CI checks (`check`, `build`, `test`,
+`security`) which run on the PR — a reviewer merges once they pass.
+
+Do not set the task status by hand afterwards. The PR-merge webhook moves `review → releasing`, and
+`deployment_status` takes it to `shipped`.
 
 ## Rules
 - **Never skip the task check** — SDLC traceability.
-- **Never skip the standards confirmation** (Step 3).
+- **Never skip the standards confirmation** (Step 3), and never confirm a standard you could not
+  verify.
 - **Never push with failing tests.**
-- **Always start from the agent branch.** PR branches are short-lived, created off the agent branch.
-- **After Step 6 the agent branch is back at `origin/main` exactly** — that's the invariant.
+- **Never work on `main`, and never merge.**

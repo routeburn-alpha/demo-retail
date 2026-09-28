@@ -25,19 +25,28 @@ you must confirm each. The three standards in this repo:
 ## Commands
 
 ```bash
+bash .studio-ai/warm.sh     # Prepare the environment — install, database, types, build, test once
 npm run dev                 # SvelteKit dev server (vite)
 npm run test                # Vitest — component + server/db integration tests
 npm run check               # svelte-check (app) + tsc on the framework's own code (sdlc/, scripts/)
 npm run build               # Production build
-npm run db:push             # Apply Drizzle schema to the database (non-interactive; see note)
-npm run db:seed             # Seed the product catalogue
-tsx scripts/seed-standards.ts   # Seed standards/*.md into the standards table
 ```
 
-`db:push` runs non-interactively (safe for agent/CI shells). `drizzle.config.ts` sets
-`tablesFilter: ['!standards']` so push ignores the `standards` table — that table is managed
-outside Drizzle by `seed-standards.ts` and would otherwise show as a data-loss drop and block on an
-interactive prompt. Keep any other out-of-Drizzle tables out of push the same way.
+**Setting up is one command: `.studio-ai/warm.sh`.** It installs, starts and seeds a local Postgres,
+generates SvelteKit's types, builds, and runs the suite once. Do not assemble that by hand, and do
+not go looking for another setup script — this is the one. If `.studio-warm.md` is present the work
+is already done; read it and skip the step.
+
+⚠️ **Do not run `db:push` or `db:seed` directly.** They are the warm script's to call. Against a
+shared (Neon) `DATABASE_URL` they rewrite state other people and other agents depend on —
+[`INITIAL-SETUP.md`](INITIAL-SETUP.md) spells this out, and it is a file an agent has no reason to
+open. `warm.sh` will not touch a non-local database for exactly this reason.
+
+**A run with no database is not a passing run.** `DATABASE_URL` absent means 20 tests skip
+themselves, including the entire `security` project, which then reports green having verified
+nothing. `drizzle.config.ts` sets `tablesFilter: ['!standards']` so push ignores the `standards`
+table — managed outside Drizzle by `seed-standards.ts`, and otherwise seen as a data-loss drop that
+blocks on an interactive prompt. Keep any other out-of-Drizzle tables out of push the same way.
 
 ## Testing
 

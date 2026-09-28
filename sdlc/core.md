@@ -1,90 +1,87 @@
 # SDLC Core
 
-Canonical specification of the SDLC step sequence. Both the human-facing
-[`/work-on-task`](../.claude/skills/work-on-task/SKILL.md) skill and a managed (headless) prompt
-render the same core — only the environment-specific deltas differ.
+Canonical specification of the SDLC step sequence. **One sequence**, for whoever is working the
+task: a person driving Claude Code in a local checkout, or an agent launched into a cloud sandbox.
 
 The runtime text lives in [`core.ts`](core.ts), which exports one `render*()` function per step.
-**Edit a step here and in `core.ts`, and it ripples to both consumers.**
+[`/work-on-task`](../.claude/skills/work-on-task/SKILL.md) and
+[`/precommit`](../.claude/skills/precommit/SKILL.md) follow the same sequence. Edit a step here and
+in `core.ts` together.
 
-## Why a core
+## Why one sequence
 
-There are two consumers of the SDLC:
+This used to describe two: a "human variant" and a "managed variant", with a table of deltas
+between them. That split was the problem.
 
-- **Human variant** — `.claude/skills/work-on-task/SKILL.md` (+ `precommit/SKILL.md`), read by
-  Claude when the user types `/work-on-task`. Adds plan-mode, the graduated-test workflow,
-  browser end-to-end verification, and the review gate.
-- **Managed variant** — a prompt assembled at request time for autonomous runs. Adds workspace
-  setup (clone, install, env, DB sync), composes the same core, and finishes with submit +
-  build-report comment + a `DONE` sentinel.
+The managed variant existed only in prose. There was no `MANAGED_STEPS`, nothing imported
+`core.ts`, and no code assembled a managed prompt. So an agent launched into a sandbox read the
+human skill — the only thing there was to read — and was told to claim a task it had already been
+given, to abort unless `HEAD` was an `agent/<name>` branch, to resolve its identity from a worktree
+settings file that doesn't exist in a sandbox, and to wait for a human approval that was never
+coming. Runs succeeded by quietly disobeying those steps, which is one less-capable model away from
+aborting at step 2 and being *correct* to.
 
-Before a shared core, each path kept its own copy of the process and drift was the default. Now
-they share text and diverge only where the environment truly forces them apart.
+The real differences are not human-vs-agent. They are facts about the environment — do you already
+have a task, is the environment already prepared, is anyone watching — and each is one line inside
+the step it affects.
 
 ## Step sequence
 
-Steps are listed by name; numbering is per-consumer. Each maps to a `render*()` function in
-`core.ts`.
+Each step maps to a `render*()` function in `core.ts`.
 
-1. **Pick up the task** *(consumer-specific)* — both read the spec, acceptance criteria, and the
-   seeded **standards**. Human picks the next backlog task; managed is handed a task id.
-2. **Sync environment** *(consumer-specific)* — human verifies branch + clean tree, then
-   `git reset --hard origin/main`. Managed runs its setup prelude (clone, `npm ci`, env pull).
-3. **Sync the database** — `renderSyncDb()`. Apply the current Drizzle schema (`npm run db:push`)
-   and seed, so the dev server and tests match `main`. **Managed runs this unconditionally;**
-   **human decides** (run it when `git fetch` pulled schema-touching commits). On failure, **both
-   abort** — without a working DB the run is invalid.
-4. **Read the architecture map** — `renderReadArchitecture()`. Read the relevant part of
-   `ARCHITECTURE.md` for the feature. Emit a one-sentence summary of what changes and the
-   user-visible outcome.
-5. **Size the task** — `renderSizeTheTask()`. `small` or `non-trivial`. Non-trivial triggers a
-   fuller plan (human enters plan mode; managed inlines the plan).
-6. **Plan + standards self-challenge** — `renderPlanAndSelfChallenge()`. Produce a one-paragraph
-   test plan and a self-challenge table against the **seeded standards** — one row per standard.
-   **Single source of standards** — query them once at pickup, no separate fetch.
+1. **Pick up the task** — `renderPickUpTask()`. Given a task number, that is your task (`get_task`);
+   otherwise claim the oldest ready one (`work_on_next_task`). Read the spec, acceptance criteria
+   and the seeded **standards**, and restate the task in a line or two.
+2. **Get on a branch** — never work on `main`. Use the branch name you were given, else
+   `claude/<taskNumber>-<slug>`, cut from an up-to-date `main`.
+3. **Prepare the environment** — `renderPrepareEnvironment()`. If `.studio-warm.md` exists the
+   environment is already prepared: read it, and do not reinstall, rebuild or re-seed. Otherwise
+   run `bash .studio-ai/warm.sh` — the one entry point, which installs, starts and seeds Postgres,
+   generates types, builds, and runs the suite once. On failure, **abort**: without a working
+   database the run is invalid.
+4. **Read the architecture map** — `renderReadArchitecture()`. Emit a one-sentence summary of what
+   changes and the user-visible outcome.
+5. **Size the task** — `renderSizeTheTask()`. `small` or `non-trivial`. Non-trivial gets a fuller
+   plan, presented for approval if a person is driving and stated inline otherwise.
+6. **Plan + standards self-challenge** — `renderPlanAndSelfChallenge()`. A one-paragraph test plan
+   and a self-challenge table against the seeded standards, one row each.
 7. **Behavior-change branch** — `renderBehaviorChangeBranch()`. Docs-only / config-only / pure
    rename: declare "no behavior change — skipping test" with a reason and skip to check + build.
 8. **Impact pass for contract changes** — `renderImpactPass()`. Grep callsites *before* writing the
-   test for required-field changes, signature changes, renames, and removes. Second pass for
-   naming-convention shifts and service-layer wrappers.
+   test.
 9. **Write the failing test, see it fail** — `renderWriteFailingTest()`. Add `.only`, run, pipe to
    `logs/`, paste the failure verbatim. A green run here = a broken test.
-10. **Implement** — `renderImplement()`. Minimum code to pass the test. Edit any callsites found in
-    step 8 in the same pass.
-11. **Broaden the test net** — `renderBroadenTests()`. Remove `.only`, run the full file, then the
-    whole suite (`npm run test`).
-12. **Pre-commit pipeline** — `renderPrecommitPipeline()`. `npm run check` + `npm run build` +
+10. **Implement** — `renderImplement()`. Minimum code to pass the test, plus the callsites from
+    step 8.
+11. **Broaden the test net** — `renderBroadenTests()`. Remove `.only`, run the whole suite.
+12. **Run it end-to-end** — start the dev server on any free port and drive the golden path. Tests
+    are not enough for UI.
+13. **Pre-commit pipeline** — `renderPrecommitPipeline()`. `npm run check` + `npm run build` +
     `npm run test`, all green, on a freshly-rebased base.
-13. **Push + open PR** — both variants push and open a PR. Human creates a short-lived
-    `{taskId}-{slug}` branch off the agent branch first; managed uses the branch passed in.
-14. **Review gate** *(human-only)* — human pauses inside `/precommit` for explicit approval. Managed
-    has no synchronous reviewer; the GitHub PR review itself is the gate.
-15. **Submit for review** — `renderSubmit()`. Confirm standards (`confirmStandards`) and attach the
-    PR. **This is the second touch of the standards gate.**
-16. **Build report** — `renderBuildReport()`. Three sections: *How we implemented it*,
-    *Decisions off-spec*, *Learnings*. **Never create follow-on tasks autonomously** — list
-    candidates as bullets in the learnings.
-17. **Ambiguity escape hatch** — `renderAmbiguity()`. If the spec is genuinely ambiguous, stop and
-    ask (human asks the user; managed posts a comment and waits).
+14. **Confirm standards and submit** — `renderSubmit()`. Re-list every standard with evidence (the
+    `confirmStandards` gate — the second touch), then push the branch and call `finalize_task`,
+    which opens the PR and moves the task to review.
+15. **Build report** — `renderBuildReport()`. Carried on `finalize_task`: summary, testing steps,
+    verification path, decisions, learnings. **Never create follow-on tasks autonomously** — list
+    candidates in the learnings.
+16. **Ambiguity escape hatch** — `renderAmbiguity()`. If the spec is genuinely ambiguous, stop and
+    ask: post the question as a comment on the task, and say it in the session too.
 
-## Consumer deltas
+## Where the environment shows through
 
-### Human variant (`/work-on-task` + `/precommit`)
-- **Plan depth (step 6)** — non-trivial tasks use plan-mode for synchronous approval.
-- **Graduated test workflow** — `.only` → full file → full suite, piping every run to `logs/`.
-- **End-to-end (step 10)** — UI changes get opened in a browser; scripts get run.
-- **Sync DB (step 3)** — human decides; skip when the worktree is already in sync.
-- **Review gate (step 14)** — wait for explicit approval. PR link + diff stat + local URLs.
+Three places, and only these:
 
-### Managed variant (headless prompt)
-- **Setup prelude** (before step 1): clone, `npm ci`, `vercel env pull` / `.env.local`, DB sync.
-- **Sync DB (step 3)** — unconditional.
-- **Plan depth (step 6)** — inline the plan as an agent message (no plan-mode).
-- **No review gate (step 14)** — push, open PR, submit, comment, terminate.
-- **End** — print the PR URL on its own line, then `DONE`.
+| Step | The fact | What it changes |
+|---|---|---|
+| 1 | Were you given a task? | Read it, or claim one. Never claim one you already have. |
+| 3 | Is `.studio-warm.md` present? | Trust it, or run `warm.sh`. |
+| 5 | Is a person driving? | Present the plan for approval, or state it and continue. |
+
+Nothing else forks. In particular, **the run always ends at review** — nobody merges their own
+work, so "is a human watching" never decides whether to wait.
 
 ## What is NOT in the core
 
 - The SDLC *policy* (test-first, minimum-code, no autonomous follow-on tasks) — those are the
   core's purpose, not parameters.
-- Async checkpoint/resume orchestration for managed runs — a separate concern.
+- Async checkpoint/resume orchestration — a separate concern.
