@@ -18,15 +18,66 @@ describe('exact search', () => {
     ).toBe(true);
   });
 
-  it('does not tolerate typos (fuzzy matching removed)', () => {
-    // "jaket" is a one-character typo of "jacket"; exact matching surfaces nothing.
-    expect(search('jaket', realCatalog)).toEqual([]);
+  it('does not expand synonyms (no semantic mapping between unrelated words)', () => {
+    // "coat" is a real synonym for jacket but shares no characters at low edit distance with
+    // "jacket" or "shell" — only a semantic synonym layer (not implemented) would surface it.
+    expect(search('coat', realCatalog)).toEqual([]);
+  });
+});
+
+// Fuzzy/typo-tolerance tests — still pure logic over the real catalogue (no I/O, no network,
+// deterministic): search() is a synchronous function over an in-memory array, so it is exercised
+// directly rather than through a running dev server or a DB.
+describe('fuzzy search (typo tolerance)', () => {
+  it('tolerates a one-character typo in every token ("shel jaket" -> shell jacket)', () => {
+    const results = search('shel jaket', realCatalog);
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.every((p) => p.category === 'shell jacket')).toBe(true);
   });
 
-  it('does not expand synonyms (synonym matching removed)', () => {
-    // "womens" (no apostrophe) is not a literal token in any name/category — only the
-    // removed synonym layer used to surface the women's line for it.
-    expect(search('womens', realCatalog)).toEqual([]);
+  it('matches a single-token typo ("shel" -> shell)', () => {
+    const results = search('shel', realCatalog);
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.every((p) => p.category === 'shell jacket')).toBe(true);
+  });
+
+  it('matches a single-token typo ("jackt" -> jacket)', () => {
+    const results = search('jackt', realCatalog);
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.every((p) => p.category.includes('jacket'))).toBe(true);
+  });
+
+  it('does not match a query with edits beyond the fuzzy threshold ("xxshell")', () => {
+    // Two insertions at the start of "shell" — outside the tolerated edit distance.
+    expect(search('xxshell', realCatalog)).toEqual([]);
+  });
+
+  it('ranks exact matches ahead of fuzzy matches', () => {
+    // The real catalogue has no two products where the same query is an exact hit for one and a
+    // one-edit-away fuzzy hit for another, so this isolates the ranking guarantee with a minimal
+    // hand-built fixture instead of static/catalog.json — still pure, still no I/O.
+    const base: Omit<Product, 'id' | 'name' | 'category'> = {
+      price: 100,
+      description: 'fixture product',
+      imageUrl: '/products/fixture.jpg'
+    };
+    const fixture: Product[] = [
+      { ...base, id: 'fuzzy-1', name: 'Ridge Jacke', category: 'outerwear' }, // typo of "jacket"
+      { ...base, id: 'exact-1', name: 'Summit Jacket', category: 'outerwear' } // literal "jacket"
+    ];
+    expect(search('jacket', fixture).map((p) => p.id)).toEqual(['exact-1', 'fuzzy-1']);
+  });
+
+  it('treats an empty query as before (returns the full catalogue, no fuzzy fallback)', () => {
+    expect(search('', realCatalog)).toEqual(realCatalog);
+  });
+
+  it('treats a query under 2 characters as before (plain exact substring match, no fuzzy fallback)', () => {
+    const results = search('a', realCatalog);
+    const expectedUnderOldBehavior = realCatalog.filter((p) =>
+      `${p.name} ${p.category}`.toLowerCase().includes('a')
+    );
+    expect(results).toEqual(expectedUnderOldBehavior);
   });
 });
 
