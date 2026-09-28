@@ -53,14 +53,17 @@ Each step maps to a `render*()` function in `core.ts`.
    `logs/`, paste the failure verbatim. A green run here = a broken test.
 10. **Implement** — `renderImplement()`. Minimum code to pass the test, plus the callsites from
     step 8.
-11. **Broaden the test net** — `renderBroadenTests()`. Remove `.only`, run the whole suite.
+11. **Broaden the test net** — `renderBroadenTests()`. Remove `.only`. The suite itself runs once,
+    in the gate below.
 12. **Run it end-to-end** — start the dev server on any free port and drive the golden path. Tests
     are not enough for UI.
-13. **Pre-commit pipeline** — `renderPrecommitPipeline()`. `npm run check` + `npm run build` +
-    `npm run test`, all green, on a freshly-rebased base.
+13. **Ship** — `renderPrecommitPipeline()`. One command: `bash .studio-ai/ship.sh "<message>"` —
+    commit, rebase, `check`, `build`, `test`, push, failing closed. The mirror of `warm.sh`: a
+    fixed sequence with no judgement in it does not belong in an agent's turn loop.
 14. **Confirm standards and submit** — `renderSubmit()`. Re-list every standard with evidence (the
-    `confirmStandards` gate — the second touch), then push the branch and call `finalize_task`,
-    which opens the PR and moves the task to review.
+    `confirmStandards` gate — the second touch), using the standards returned with the task rather
+    than re-reading them off disk. Then call `finalize_task`, which opens the PR and moves the task
+    to review.
 15. **Build report** — `renderBuildReport()`. Carried on `finalize_task`: summary, testing steps,
     verification path, decisions, learnings. **Never create follow-on tasks autonomously** — list
     candidates in the learnings.
@@ -79,6 +82,19 @@ Three places, and only these:
 
 Nothing else forks. In particular, **the run always ends at review** — nobody merges their own
 work, so "is a human watching" never decides whether to wait.
+
+## What is a script, and what is a step
+
+Two things are scripts rather than steps, for the same reason: they are fixed sequences with no
+judgement in them, and a model executing them one turn at a time is pure overhead.
+
+| Script | Replaces | Measured before |
+|---|---|---|
+| `.studio-ai/warm.sh` | install, database, types, build, first test run | 14 tool calls, 63s per run |
+| `.studio-ai/ship.sh` | commit, rebase, check, build, test, push | 11 of 24 tool calls |
+
+What stays with whoever is working the task: whether the change is right, whether the standards
+hold, what the commit message says, and what goes in the build report.
 
 ## What is NOT in the core
 

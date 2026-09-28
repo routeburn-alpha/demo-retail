@@ -116,24 +116,31 @@ export function renderImplement(): string {
 
 export function renderBroadenTests(): string {
   return [
-    "Remove `.only`. Run the full file, then the whole suite:",
-    "  npm run test 2>&1 | tee logs/test-full.log",
-    "Fix anything that broke.",
+    "Remove `.only`. Do NOT run the whole suite here — the ship script runs it with check and",
+    "build as one gate. Running it in both places is the same suite twice for no new information.",
   ].join("\n");
 }
 
-export function renderPrecommitPipeline(): string {
+export function renderPrecommitPipeline({ wd }: CoreEnv): string {
   return [
-    "Rebase on the latest main, then run the full gate — all three must be green:",
-    "  npm run check && npm run build && npm run test",
+    "One command commits, rebases on main, runs check + build + test, and pushes — failing closed:",
+    `  bash ${wd}/.studio-ai/ship.sh "<commit message>"`,
+    "",
+    "It prints one line per phase; full output goes to logs/ship-<phase>.log. A non-zero exit names",
+    "the phase that failed with the tail of its log — fix it and run again. Re-running amends, so",
+    "the branch keeps one commit however many rounds it takes.",
+    "",
+    "Do not hand-run the three commands first, and never push by hand. The sequence is fixed and",
+    "has no judgement in it, which is exactly why it is a script and not eight of your turns.",
   ].join("\n");
 }
 
 export function renderSubmit(): string {
   return [
     "Re-list every seeded standard and confirm the changeset meets it (the `confirmStandards`",
-    "gate). Only after confirming all standards: push the branch and call `finalize_task` with it,",
-    "which opens the PR and moves the task to review.",
+    "gate). Use the standards returned with the task — do not re-read them off disk, you have them.",
+    "Only after confirming all standards: ship, then call `finalize_task` with the branch, which",
+    "opens the PR and moves the task to review.",
     "",
     "You do not merge. Review and merge belong to a person, whether or not one is watching now, so",
     "the run ends at `finalize_task` — there is nothing to wait for.",
