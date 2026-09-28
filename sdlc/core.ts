@@ -1,15 +1,22 @@
 /**
- * SDLC Core — the single source of step text shared by both runtimes.
+ * SDLC Core — the single source of step text.
  *
- * The human `/work-on-task` skill and the managed (headless) prompt both compose their step
- * instructions from these `render*()` functions. Edit a step here (and mirror the prose in
- * `core.md`) and it ripples to both consumers — that is the whole point: no drift.
+ * ONE sequence, for whoever is working the task: a person driving Claude Code in a checkout, or an
+ * agent launched into a cloud sandbox. It used to be two — a "human variant" and a "managed
+ * variant" — and the split was the problem, not a feature. The managed variant was described in
+ * prose but never existed in code (there was no `MANAGED_STEPS` and nothing imported this file),
+ * so a launched agent read the human one and was told to claim a task it had already been given,
+ * to abort unless HEAD was an agent branch, to resolve its identity from a worktree settings file,
+ * and to wait for a human approval that was never coming. The runs that worked did so by
+ * disobeying those steps.
+ *
+ * Where the environment genuinely differs, the step says so in one line. It does not fork.
  *
  * See FRAMEWORK.md (Opinion 1) and sdlc/core.md.
  */
 
 export interface CoreEnv {
-  /** Working directory. Human: '.'. Managed: the cloned workspace path. */
+  /** Working directory: '.' in a local checkout, the workspace path in a sandbox. */
   wd: string;
 }
 
@@ -17,16 +24,26 @@ const STORE_PATH = "standards"; // where the seeded standards live (see scripts/
 
 export function renderPickUpTask(): string {
   return [
-    "Read the task spec, acceptance criteria, and the seeded standards returned with it.",
+    "If you were given a task number, that is your task: read it with `get_task`. Only if you were",
+    "not given one, claim the oldest ready task with `work_on_next_task`.",
+    "Read the spec, acceptance criteria, and the seeded standards returned with it.",
     "Restate the task name and acceptance criteria in one or two lines before doing anything else.",
   ].join("\n");
 }
 
-export function renderSyncDb(): string {
+/**
+ * The storefront reads its catalogue from Postgres, so a run without a database serves 500s and
+ * silently SKIPS 20 tests — the whole `security` project among them, which then reports green
+ * having verified nothing. One command owns getting there, and it is the same command the platform
+ * runs to warm a sandbox before the task arrives.
+ */
+export function renderPrepareEnvironment({ wd }: CoreEnv): string {
   return [
-    "Apply the current schema and seed so the dev server and tests match `main`:",
-    "  npm run db:push && npm run db:seed",
-    "If either fails, ABORT and report the reason — without a working database the run is invalid,",
+    `If ${wd}/.studio-warm.md exists, the environment is already prepared — dependencies, database,`,
+    "generated types and build cache. Read it and do NOT reinstall, rebuild or re-seed.",
+    "",
+    `Otherwise run the one entry point: \`bash ${wd}/.studio-ai/warm.sh\``,
+    "If it fails, ABORT and report the reason — without a working database the run is invalid,",
     "regardless of how small the change is.",
   ].join("\n");
 }
@@ -115,7 +132,11 @@ export function renderPrecommitPipeline(): string {
 export function renderSubmit(): string {
   return [
     "Re-list every seeded standard and confirm the changeset meets it (the `confirmStandards`",
-    "gate). Only after confirming all standards: open the PR and submit it for review.",
+    "gate). Only after confirming all standards: push the branch and call `finalize_task` with it,",
+    "which opens the PR and moves the task to review.",
+    "",
+    "You do not merge. Review and merge belong to a person, whether or not one is watching now, so",
+    "the run ends at `finalize_task` — there is nothing to wait for.",
   ].join("\n");
 }
 
@@ -132,15 +153,16 @@ export function renderBuildReport(): string {
 
 export function renderAmbiguity(): string {
   return [
-    "If the spec is genuinely ambiguous, STOP and ask rather than guessing. Human: ask the user.",
-    "Managed: post a comment on the task and wait.",
+    "If the spec is genuinely ambiguous, STOP and ask rather than guessing: post the question as a",
+    "comment on the task with `create_comment`. Say it in the session too, in case someone is",
+    "watching — but the comment is what reaches whoever answers.",
   ].join("\n");
 }
 
-/** The ordered human-variant render pipeline, for reference / composition. */
-export const HUMAN_STEPS = [
+/** The ordered step sequence. One pipeline, whoever is working the task. */
+export const STEPS = [
   renderPickUpTask,
-  renderSyncDb,
+  renderPrepareEnvironment,
   renderReadArchitecture,
   renderSizeTheTask,
   renderPlanAndSelfChallenge,

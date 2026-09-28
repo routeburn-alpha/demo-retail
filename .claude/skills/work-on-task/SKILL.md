@@ -6,50 +6,47 @@ user_invocable: true
 
 # Work on Task
 
-The canonical way to start a task. Test-first, with a standards self-challenge before the test is
-written. One human touchpoint: the review gate in `/precommit`.
+The canonical way to work a task, whoever is doing it: a person driving Claude Code in a local
+checkout, or an agent launched into a cloud sandbox. **One path.** Where the environment genuinely
+differs, the step says so in a line — it does not fork.
 
-The shared SDLC text lives in [`sdlc/core.md`](../../../sdlc/core.md) (runtime: `sdlc/core.ts`).
-This skill is the **human variant** — it follows the core end-to-end and adds the human deltas:
-plan-mode for non-trivial tasks, the graduated test workflow, browser end-to-end verification, and
-the hand-off to `/precommit`.
-
-## When to use
-
-Default for every task. `/work-on-task <productCode> <taskNumber>` to pick a specific studio task,
-or `/work-on-task` to take the next one.
+The shared step text lives in [`sdlc/core.md`](../../../sdlc/core.md) (runtime: `sdlc/core.ts`).
 
 ## Flow
 
 ### 1. Pick up the task
-Tasks live in **studio-ai** (over MCP), not in files. Claim with `work_on_next_task`:
-- Id passed: `work_on_next_task(productCode, taskNumber)` for that specific task.
-- No argument: `work_on_next_task(productCode)` — claims the oldest `backlog` task.
+Tasks live in **studio-ai** (over MCP), not in files.
 
-This marks the task `inProgress` and assigns it to the registered agent (register once with
-`register_agent` if `list_agents` is empty). Read the spec, acceptance criteria, and the seeded
-**standards** (`standards/` — these are the gate). Show task title and acceptance criteria.
+- **You were given a task number** — that is your task. Read it with `get_task`. Do not call any
+  tool that picks up or claims a task; you already have one.
+- **You were not** — claim the oldest ready task with `work_on_next_task(productCode)`.
 
-### 2. Sync environment
-Work only ever happens on the agent branch (`agent/$AGENT_NAME`), where `$AGENT_NAME` is resolved
-from the worktree by `npx tsx scripts/studio-poll.ts whoami` — never read out of the environment,
-which may carry another worktree's (equally valid, equally registered) agent name.
-1. `git rev-parse --abbrev-ref HEAD` must equal `agent/$AGENT_NAME`. If it's a `{id}-…` PR branch
-   or anything else, **abort** — a leftover branch means a previous session didn't finish cleanly.
-2. No unfinished submitted work from **this agent**: call `get_tasks(status: "review")` (studio-wide)
-   and check whether any returned task is **assigned to this agent** — shown as `[$AGENT_NAME]` in the
-   listing. If one is, that PR must merge or close first, so **abort**; otherwise continue. Scope this
-   by **agent**, not by GitHub account: in the fleet all agents push as one git identity, so
-   `gh pr list --author "@me"` returns *other* agents' open PRs and trips this gate falsely. NB the
-   `get_tasks` **`agent` parameter is a no-op** (it does not filter server-side — verified), so you
-   must read the `[$AGENT_NAME]` assignment from the listing yourself, not rely on an `agent:` filter.
-3. Clean tree + no unpushed commits: `git fetch origin main`, `git status --porcelain`,
-   `git log --oneline origin/main..HEAD`. Non-empty either → abort.
-4. Only after 1–3 pass: `git reset --hard origin/main`.
+Read the spec, acceptance criteria, and the seeded **standards** (`standards/` — these are the
+gate). Restate the task name and acceptance criteria in one or two lines before doing anything else.
 
-### 3. Sync the database (your call)
-If step 2's fetch pulled schema-touching commits, run `npm run db:push && npm run db:seed`. Skip if
-nothing relevant changed. **If it fails, abort** — without a working DB the run is invalid.
+### 2. Get on a branch, off an up-to-date main
+Never work on `main`, and never commit to it.
+
+```bash
+git fetch origin main && git reset --hard origin/main   # only if your tree is clean
+git checkout -b <branch>
+```
+
+Use the branch name you were given if you were given one. Otherwise `claude/<taskNumber>-<slug>`.
+
+If the working tree is dirty or carries commits that aren't on `main`, stop and say so rather than
+resetting over someone's work.
+
+### 3. Prepare the environment
+The storefront reads its catalogue from Postgres. Without a database the dev server returns 500 and
+**20 tests skip themselves** — including the entire `security` project, which then reports green
+having verified nothing.
+
+- **`.studio-warm.md` exists** — the environment is already prepared: dependencies, database,
+  generated types, warm build cache. Read it and do **not** reinstall, rebuild or re-seed.
+- **It doesn't** — run the one entry point: `bash .studio-ai/warm.sh`. That is the whole of this
+  step; there is no other setup script. If it fails, **abort** — without a working database the run
+  is invalid, however small the change.
 
 ### 4. Read the architecture map
 Read the relevant part of `ARCHITECTURE.md`. State in one sentence: "This task changes {what} in
@@ -59,8 +56,9 @@ Read the relevant part of `ARCHITECTURE.md`. State in one sentence: "This task c
 **Do not write production code until this completes.**
 
 **5.0 Size:** `small` or `non-trivial`. If unsure, non-trivial.
-**5.0a Plan mode (non-trivial only):** call EnterPlanMode, produce a plan (files, approach,
-decisions); the test plan slots in. Present via ExitPlanMode and wait for approval.
+**5.0a Plan first (non-trivial only):** produce a plan — files, approach, decisions — with the test
+plan in it. If a person is driving, present it and wait for approval; otherwise state it inline and
+continue.
 **5a Propose the test:** one paragraph — file path, level (component / server-db / pure unit), the
 single assertion proving the user-visible outcome, setup/teardown.
 **5b Self-challenge against the seeded standards** (`standards/`). One row per standard:
@@ -73,11 +71,11 @@ Pay special attention to **Tests Run Against Real Services** (use real Postgres 
 render, never a mock) and **Leave Touched Files Cleaner** (note which files you'll open and what
 dead code you'll remove). Apply adjustments; restate the plan if it changed materially.
 **5c Behavior change?** Docs-only / config-only / pure rename → state "No behavior change —
-skipping test." with a reason, skip to step 7.
+skipping test." with a reason, skip to step 9.
 **5d Impact pass (contract changes):** grep all callsites before writing the test.
 
 ### 6. Write the failing test — see it fail
-Write the test, add `.only`, run and pipe to a file:
+Write the test, add `.only`, run it and pipe to a file:
 ```bash
 npm run test 2>&1 | tee logs/test-output.log
 ```
@@ -94,20 +92,17 @@ npm run test 2>&1 | tee logs/test-full.log
 Fix anything that broke.
 
 ### 9. Run the change end-to-end
-Tests aren't enough for UI. Resolve the dev-server port from the **worktree**, never from the shell —
-`$AGENT_PORT` leaks between worktrees exactly as `$AGENT_NAME` did, and a leaked one lets you verify
-a change against another agent's dev server:
+Tests aren't enough for UI. Start the dev server on any free port and drive the golden path:
 ```bash
-PORT="$(npx tsx scripts/studio-poll.ts port)"   # fails loudly if another worktree claims it
-npm run dev -- --port "$PORT"
+npm run dev -- --port 4173 &
+curl -s http://127.0.0.1:4173/ | grep <the thing you changed>
 ```
-Open the affected route at `http://localhost:$PORT` and drive the golden path. For scripts, run them
-with real arguments. If you can't execute the change here (missing keys, paid service), say so at
-the review gate.
+Open the affected route and check it renders. For scripts, run them with real arguments. Stop the
+server when you're done. If you genuinely can't execute the change here (missing keys, paid
+service), say so in the build report rather than skipping quietly.
 
 ### 10. Ship
-Invoke `/precommit`. The review gate inside it is the one human stop. Don't wait for the user before
-invoking it.
+Invoke `/precommit`. Don't wait to be asked.
 
 ## Rules
 - **Step 5 is mandatory** — no production code before the standards self-challenge plus a failing
@@ -115,3 +110,4 @@ invoking it.
 - **Step 6 failure output is mandatory** and pasted verbatim.
 - **Never mock** (standard: Tests Run Against Real Services). **Clean the files you touch**
   (standard: Leave Touched Files Cleaner).
+- **Never work on `main`, and never merge.** Shipping ends at review.

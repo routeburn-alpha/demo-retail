@@ -28,33 +28,39 @@ For a narrative, newcomer-facing walkthrough of how these opinions play out when
 
 ---
 
-## Opinion 1 — One spec, two runtimes
+## Opinion 1 — One spec, one path
 
-This is the architectural keystone. There is exactly one description of the SDLC step sequence,
-and both consumers render it.
+This is the architectural keystone. There is exactly one description of the SDLC step sequence, and
+everyone working a task follows it — a person driving Claude Code in a checkout, or an agent
+launched into a cloud sandbox.
 
 ```
                     sdlc/core.md   (the human-readable contract)
                           │
                           ▼
                     sdlc/core.ts   exports render*() — the canonical step TEXT
-                 ┌────────┴─────────┐
-                 ▼                  ▼
-     work-on-task/SKILL.md    (a managed/headless prompt)
-       HUMAN variant            MANAGED variant
-     + plan-mode              + setup prelude (clone, install, env)
-     + browser E2E            + runs DB sync unconditionally
-     + review gate            + no review gate (the PR review is the gate)
-                              + ends with submit + comment + DONE
+                          │
+                          ▼
+              .claude/skills/{work-on-task,precommit}
+                    ONE sequence, whoever is working
+
+       the environment shows through in exactly three places:
+         · were you given a task, or do you claim one?
+         · is .studio-warm.md present, or do you run warm.sh?
+         · is a person driving, or do you state the plan and continue?
 ```
 
-The two variants differ *only* where the environment forces them apart. **Edit the core once and
-both paths update.** Before a shared core, each path kept its own copy of the process and drift
-was the default.
+**Edit the core once and the path updates.** Before a shared core, each consumer kept its own copy
+of the process and drift was the default.
 
-In this demo the human variant is fully wired (the `.claude/skills`). The managed variant is
-described in `sdlc/core.md` as the second consumer — the same `render*()` functions would compose
-it.
+This used to be drawn as *two* runtimes — a HUMAN variant and a MANAGED one, with a column of
+deltas each. It was wrong twice over. The managed column existed only in this diagram: no
+`MANAGED_STEPS`, nothing importing `core.ts`, no code assembling a managed prompt. And a launched
+agent, having nothing else to read, followed the human skill — which told it to claim a task it had
+already been given, to abort unless `HEAD` was an agent branch, to read its identity from a worktree
+file absent in a sandbox, and to wait for an approval nobody was going to give. It shipped by
+disobeying its own instructions. Two paths cost more than they bought: the second one rots, and the
+first one gets followed by someone it was never addressed to.
 
 **The framework's own code is held to the same gate as the app.** `npm run check` type-checks
 `sdlc/core.ts` and the `scripts/` under the same strict config as `src/` (via
