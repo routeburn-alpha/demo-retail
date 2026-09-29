@@ -1,3 +1,4 @@
+<!-- Tech stack: SvelteKit 2 + Drizzle ORM + Postgres (Neon), tested with Vitest. -->
 # Routeburn — Demo Storefront
 
 A minimal one-page outdoor-gear storefront used as the customer-facing product for the seeded `demo-alpha / search-discovery` studio in [studio-ai](https://app.getpraxa.ai/).
