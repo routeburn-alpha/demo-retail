@@ -53,8 +53,8 @@ has the detail if you need it.
 
 **Setting up is one command: `.studio-ai/warm.sh`.** It installs, starts and seeds a local Postgres,
 generates SvelteKit's types, builds, and runs the suite once. Do not assemble that by hand, and do
-not go looking for another setup script — this is the one. If `.studio-warm.md` is present the work
-is already done; read it and skip the step.
+not go looking for another setup script — this is the one. Just run it; every session starts on a
+fresh machine, so there is nothing to check for first.
 
 ⚠️ **Do not run `db:push` or `db:seed` directly.** They are the warm script's to call. Against a
 shared (Neon) `DATABASE_URL` they rewrite state other people and other agents depend on —

@@ -34,11 +34,9 @@ Each step maps to a `render*()` function in `core.ts`.
    and the seeded **standards**, and restate the task in a line or two.
 2. **Get on a branch** — never work on `main`. Use the branch name you were given, else
    `claude/<taskNumber>-<slug>`, cut from an up-to-date `main`.
-3. **Prepare the environment** — `renderPrepareEnvironment()`. If `.studio-warm.md` exists the
-   environment is already prepared: read it, and do not reinstall, rebuild or re-seed. Otherwise
-   run `bash .studio-ai/warm.sh` — the one entry point, which installs, starts and seeds Postgres,
-   generates types, builds, and runs the suite once. On failure, **abort**: without a working
-   database the run is invalid.
+3. **Prepare the environment** — `renderPrepareEnvironment()`. Run `bash .studio-ai/warm.sh` — the
+   one entry point, which installs, starts and seeds Postgres, generates types, builds, and runs
+   the suite once. On failure, **abort**: without a working database the run is invalid.
 4. **Read the architecture map** — `renderReadArchitecture()`. Emit a one-sentence summary of what
    changes and the user-visible outcome.
 5. **Size the task** — `renderSizeTheTask()`. `small` or `non-trivial`. Non-trivial gets a fuller
@@ -72,13 +70,19 @@ Each step maps to a `render*()` function in `core.ts`.
 
 ## Where the environment shows through
 
-Three places, and only these:
+Two places, and only these:
 
 | Step | The fact | What it changes |
 |---|---|---|
 | 1 | Were you given a task? | Read it, or claim one. Never claim one you already have. |
-| 3 | Is `.studio-warm.md` present? | Trust it, or run `warm.sh`. |
 | 5 | Is a person driving? | Present the plan for approval, or state it and continue. |
+
+Step 3 (prepare the environment) does **not** fork on the deployment shape. An earlier version
+checked for a `.studio-warm.md` marker before running `warm.sh`, copied from a different deployment
+where a sandbox really is reused across tasks. On this platform's managed-cloud sessions every run
+starts on a fresh machine — `apps/execution-api` creates a new agent, environment and session per
+launch — so the marker could never exist to find. The check always failed and always fell through
+to running `warm.sh` anyway: a real decision with one possible answer, which is not a decision.
 
 Nothing else forks. In particular, **the run always ends at review** — nobody merges their own
 work, so "is a human watching" never decides whether to wait.

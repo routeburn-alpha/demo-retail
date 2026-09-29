@@ -34,15 +34,17 @@ export function renderPickUpTask(): string {
 /**
  * The storefront reads its catalogue from Postgres, so a run without a database serves 500s and
  * silently SKIPS 20 tests — the whole `security` project among them, which then reports green
- * having verified nothing. One command owns getting there, and it is the same command the platform
- * runs to warm a sandbox before the task arrives.
+ * having verified nothing. One command owns getting there.
+ *
+ * No "is it already done?" check here. Every run starts on a fresh machine — there is nothing to
+ * have already done it. (A prior version checked for a marker file first, copied from a different
+ * deployment shape where a sandbox really is reused across tasks. Here it never existed to find,
+ * so the check always failed and the agent always fell through to running warm.sh anyway — a dead
+ * branch that cost a turn asking a question with one answer.)
  */
 export function renderPrepareEnvironment({ wd }: CoreEnv): string {
   return [
-    `If ${wd}/.studio-warm.md exists, the environment is already prepared — dependencies, database,`,
-    "generated types and build cache. Read it and do NOT reinstall, rebuild or re-seed.",
-    "",
-    `Otherwise run the one entry point: \`bash ${wd}/.studio-ai/warm.sh\``,
+    `Run the one entry point: \`bash ${wd}/.studio-ai/warm.sh\``,
     "If it fails, ABORT and report the reason — without a working database the run is invalid,",
     "regardless of how small the change is.",
   ].join("\n");

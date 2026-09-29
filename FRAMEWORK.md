@@ -44,9 +44,8 @@ launched into a cloud sandbox.
               .claude/skills/{work-on-task,precommit}
                     ONE sequence, whoever is working
 
-       the environment shows through in exactly three places:
+       the environment shows through in exactly two places:
          · were you given a task, or do you claim one?
-         · is .studio-warm.md present, or do you run warm.sh?
          · is a person driving, or do you state the plan and continue?
 ```
 
