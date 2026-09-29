@@ -44,9 +44,12 @@ export function renderPickUpTask(): string {
  */
 export function renderPrepareEnvironment({ wd }: CoreEnv): string {
   return [
-    `Run the one entry point: \`bash ${wd}/.studio-ai/warm.sh\``,
-    "If it fails, ABORT and report the reason — without a working database the run is invalid,",
-    "regardless of how small the change is.",
+    // The redirect lives here, in the ONE instruction every consumer follows — not inside
+    // warm.sh, which would mean every script that might exist has to separately remember to
+    // capture its own output. One place decides where output goes; scripts stay plain commands.
+    `Run the one entry point: \`mkdir -p ${wd}/logs && bash ${wd}/.studio-ai/warm.sh > ${wd}/logs/warm.log 2>&1\``,
+    "If it fails, read logs/warm.log for the reason, then ABORT and report it — without a working",
+    "database the run is invalid, regardless of how small the change is.",
   ].join("\n");
 }
 

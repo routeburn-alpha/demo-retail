@@ -34,9 +34,11 @@ Each step maps to a `render*()` function in `core.ts`.
    and the seeded **standards**, and restate the task in a line or two.
 2. **Get on a branch** — never work on `main`. Use the branch name you were given, else
    `claude/<taskNumber>-<slug>`, cut from an up-to-date `main`.
-3. **Prepare the environment** — `renderPrepareEnvironment()`. Run `bash .studio-ai/warm.sh` — the
-   one entry point, which installs, starts and seeds Postgres, generates types, builds, and runs
-   the suite once. On failure, **abort**: without a working database the run is invalid.
+3. **Prepare the environment** — `renderPrepareEnvironment()`. Run `.studio-ai/warm.sh`, output
+   redirected to `logs/warm.log` — the one entry point, which installs, starts and seeds Postgres,
+   generates types, builds, and runs the suite once. The redirect is stated in the instruction, not
+   inside the script: one place decides where output goes, not every script that might exist. On
+   failure, read the log and **abort**: without a working database the run is invalid.
 4. **Read the architecture map** — `renderReadArchitecture()`. Emit a one-sentence summary of what
    changes and the user-visible outcome.
 5. **Size the task** — `renderSizeTheTask()`. `small` or `non-trivial`. Non-trivial gets a fuller
