@@ -38,6 +38,19 @@ sequence with no judgement in it should not be executed one turn at a time. Don'
 before `ship.sh` — it runs `check`, `build` and `test` itself, and running the suite twice a minute
 apart tells you nothing new.
 
+### Shipping, in full
+
+1. Confirm each standard in `standards/` with one line of evidence (read them once during the
+   plan's self-challenge; you still have them).
+2. `bash .studio-ai/ship.sh "<commit message>"` — exit 0 means pushed; non-zero names the phase
+   that failed and leaves its log in `logs/ship-<phase>.log`. Fix and re-run; it amends.
+3. Call `finalize_task` with the branch, repo, `productCode` and a `buildReport`. That opens the PR
+   and moves the task to review.
+
+That is the whole of it. You do not need to re-read the skill, re-fetch the task you were given, or
+check what branch you are on — `ship.sh` refuses to run on `main`. [`/precommit`](.claude/skills/precommit/SKILL.md)
+has the detail if you need it.
+
 **Setting up is one command: `.studio-ai/warm.sh`.** It installs, starts and seeds a local Postgres,
 generates SvelteKit's types, builds, and runs the suite once. Do not assemble that by hand, and do
 not go looking for another setup script — this is the one. If `.studio-warm.md` is present the work

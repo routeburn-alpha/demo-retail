@@ -79,9 +79,28 @@ phase rebase git -c core.editor=true rebase origin/main || {
 }
 
 # The gate. All three, every time, before anything leaves the machine.
-phase check npm run check || exit 1
-phase build npm run build || exit 1
-phase test  npm run test  || exit 1
+#
+# `check` and `build` are independent and neither writes what the other reads, so they run
+# concurrently — measured at 9s and 8s serially. `test` runs alone afterwards: it drives a real
+# Chromium, and starting it beside a vite build makes a CPU-bound suite contend for the same cores,
+# which is how a pure-render test ends up timing out on a small box.
+printf '[ship] check+build '
+npm run check > logs/ship-check.log 2>&1 &
+CHECK_PID=$!
+npm run build > logs/ship-build.log 2>&1 &
+BUILD_PID=$!
+CHECK_RC=0; BUILD_RC=0
+wait $CHECK_PID || CHECK_RC=$?
+wait $BUILD_PID || BUILD_RC=$?
+if [ "$CHECK_RC" -ne 0 ] || [ "$BUILD_RC" -ne 0 ]; then
+	echo "FAILED"
+	[ "$CHECK_RC" -ne 0 ] && { echo "[ship] --- last 30 lines of logs/ship-check.log ---" >&2; tail -30 logs/ship-check.log >&2; }
+	[ "$BUILD_RC" -ne 0 ] && { echo "[ship] --- last 30 lines of logs/ship-build.log ---" >&2; tail -30 logs/ship-build.log >&2; }
+	exit 1
+fi
+echo "ok"
+
+phase test npm run test || exit 1
 
 phase push git push -u --force-with-lease origin "$BRANCH" || exit 1
 

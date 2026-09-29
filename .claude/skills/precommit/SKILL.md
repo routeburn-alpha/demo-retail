@@ -18,16 +18,19 @@ Two things happen here, and only one of them is yours:
 
 ## Flow
 
-### 1. Verify active task + branch
-- **Task:** read the task you are working with `get_task`. If you don't have one, say that pushing
-  without a task bypasses the SDLC, and ask whether to continue. If you continue, skip Step 2.
-- **Branch:** `git rev-parse --abbrev-ref HEAD` must not be `main`. If it is, create the branch now
-  (`claude/<taskNumber>-<slug>`, or the name you were given) and carry your work onto it.
+### 1. Verify active task
+You already have the task — it came with your prompt, or you claimed it in `/work-on-task`. Don't
+re-fetch it. If you genuinely have no task, say that pushing without one bypasses the SDLC and ask
+whether to continue; if you continue, skip Step 2.
+
+No branch check here: `ship.sh` refuses to run on `main`, which is the same check with a real exit
+code instead of your turn.
 
 ### 2. Confirm standards — the `confirmStandards` gate
-Re-list EVERY seeded standard and confirm the changeset meets it. **Use the standards `get_task`
-returned with the task — do not re-read `standards/*.md` off disk, you already have them.** Print a
-confirmation line per standard:
+Re-list EVERY seeded standard (`standards/`) and confirm the changeset meets it. You read them
+during the self-challenge in `/work-on-task` — reuse those, rather than reading them a second time.
+If you skipped that step, read them now: confirming a standard whose text you have never seen is
+not a confirmation. Print a line per standard:
 
 | Standard | Met? | Evidence |
 |----------|------|----------|

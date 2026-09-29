@@ -61,7 +61,8 @@ plan in it. If a person is driving, present it and wait for approval; otherwise 
 continue.
 **5a Propose the test:** one paragraph — file path, level (component / server-db / pure unit), the
 single assertion proving the user-visible outcome, setup/teardown.
-**5b Self-challenge against the seeded standards** (`standards/`). One row per standard:
+**5b Self-challenge against the seeded standards.** Read `standards/*.md` now — once, here. You
+will confirm against them again at ship time, from what you read. One row per standard:
 
 | Standard | Plan respects it? | Adjustment if not |
 |----------|-------------------|-------------------|
