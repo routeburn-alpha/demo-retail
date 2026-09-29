@@ -14,7 +14,7 @@
 #   - the commit message, passed in here
 #   - calling `finalize_task` afterwards, which opens the PR and moves the task to review
 #
-# Usage:  bash .studio-ai/precommit.sh "<commit message>"
+# Usage:  bash scripts/precommit.sh "<commit message>"
 #
 # Exit 0  the branch is pushed and ready for finalize_task.
 # Exit 1  a phase failed. The failing phase is named, with the tail of its log. Fix it and re-run;
@@ -27,7 +27,7 @@ cd "$(dirname "$0")/.."
 
 MESSAGE="${1:-}"
 if [ -z "$MESSAGE" ]; then
-	echo "[precommit] usage: bash .studio-ai/precommit.sh \"<commit message>\"" >&2
+	echo "[precommit] usage: bash scripts/precommit.sh \"<commit message>\"" >&2
 	exit 1
 fi
 

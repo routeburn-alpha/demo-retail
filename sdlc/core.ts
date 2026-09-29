@@ -124,7 +124,7 @@ export function renderBroadenTests(): string {
 export function renderPrecommitPipeline({ wd }: CoreEnv): string {
   return [
     "One command commits, rebases on main, runs check + build + test, and pushes — failing closed:",
-    `  bash ${wd}/.studio-ai/precommit.sh "<commit message>"`,
+    `  bash ${wd}/scripts/precommit.sh "<commit message>"`,
     "",
     "It prints one line per phase; full output goes to logs/precommit-<phase>.log. A non-zero exit names",
     "the phase that failed with the tail of its log — fix it and run again. Re-running amends, so",
