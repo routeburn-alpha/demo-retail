@@ -25,7 +25,7 @@ you must confirm each. The three standards in this repo:
 ## Commands
 
 ```bash
-bash .studio-ai/warm.sh         # Prepare the environment — install, database, types, build, test once
+mkdir -p logs && bash .studio-ai/warm.sh > logs/warm.log 2>&1   # Prepare the environment — install, database, types, build, test once
 bash scripts/precommit.sh "msg"   # Commit, rebase, check, build, test, push — the whole gate
 npm run dev                     # SvelteKit dev server (vite)
 npm run test                    # Vitest — component + server/db integration tests
@@ -51,10 +51,13 @@ That is the whole of it. You do not need to re-read the skill, re-fetch the task
 check what branch you are on — `precommit.sh` refuses to run on `main`. [`/precommit`](.claude/skills/precommit/SKILL.md)
 has the detail if you need it.
 
-**Setting up is one command: `.studio-ai/warm.sh`.** It installs, starts and seeds a local Postgres,
-generates SvelteKit's types, builds, and runs the suite once. Do not assemble that by hand, and do
-not go looking for another setup script — this is the one. If `.studio-warm.md` is present the work
-is already done; read it and skip the step.
+**Setting up is one command: `mkdir -p logs && bash .studio-ai/warm.sh > logs/warm.log 2>&1`.** It
+installs, starts and seeds a local Postgres, generates SvelteKit's types, builds, and runs the
+suite once. Do not assemble that by hand, and do not go looking for another setup script — this is
+the one. Just run it; every session starts on a fresh machine, so there is nothing to check for
+first. `warm.sh` itself has no logging of its own — the redirect above is the one place that
+decides where its output goes, so it doesn't have to be repeated inside every script that might
+exist. On failure, read `logs/warm.log`.
 
 ⚠️ **Do not run `db:push` or `db:seed` directly.** They are the warm script's to call. Against a
 shared (Neon) `DATABASE_URL` they rewrite state other people and other agents depend on —

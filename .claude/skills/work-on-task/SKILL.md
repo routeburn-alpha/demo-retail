@@ -42,11 +42,14 @@ The storefront reads its catalogue from Postgres. Without a database the dev ser
 **20 tests skip themselves** — including the entire `security` project, which then reports green
 having verified nothing.
 
-- **`.studio-warm.md` exists** — the environment is already prepared: dependencies, database,
-  generated types, warm build cache. Read it and do **not** reinstall, rebuild or re-seed.
-- **It doesn't** — run the one entry point: `bash .studio-ai/warm.sh`. That is the whole of this
-  step; there is no other setup script. If it fails, **abort** — without a working database the run
-  is invalid, however small the change.
+Run the one entry point:
+```bash
+mkdir -p logs && bash .studio-ai/warm.sh > logs/warm.log 2>&1
+```
+That is the whole of this step; there is no other setup script and no marker file to check first —
+every run starts on a fresh machine, so there is nothing to have already done. If it fails, read
+`logs/warm.log` for the reason, then **abort** — without a working database the run is invalid,
+however small the change.
 
 ### 4. Read the architecture map
 Read the relevant part of `ARCHITECTURE.md`. State in one sentence: "This task changes {what} in
