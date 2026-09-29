@@ -1,6 +1,6 @@
 ---
 name: precommit
-description: Safe pre-commit workflow. Confirms standards, runs the gate and pushes via .studio-ai/ship.sh, then submits the task for review. Use this instead of git push directly.
+description: Safe pre-commit workflow. Confirms standards, runs the gate and pushes via .studio-ai/precommit.sh, then submits the task for review. Use this instead of git push directly.
 ---
 
 # Precommit Skill
@@ -13,7 +13,7 @@ Two things happen here, and only one of them is yours:
 
 - **Judgement — yours.** Do the standards hold? What does the commit message say? What goes in the
   build report?
-- **The ritual — `.studio-ai/ship.sh`.** Commit, rebase, check, build, test, push. Fixed sequence,
+- **The ritual — `.studio-ai/precommit.sh`.** Commit, rebase, check, build, test, push. Fixed sequence,
   no decisions in it, so it is one command and not eight turns of you driving it by hand.
 
 ## Flow
@@ -23,7 +23,7 @@ You already have the task — it came with your prompt, or you claimed it in `/w
 re-fetch it. If you genuinely have no task, say that pushing without one bypasses the SDLC and ask
 whether to continue; if you continue, skip Step 2.
 
-No branch check here: `ship.sh` refuses to run on `main`, which is the same check with a real exit
+No branch check here: `precommit.sh` refuses to run on `main`, which is the same check with a real exit
 code instead of your turn.
 
 ### 2. Confirm standards — the `confirmStandards` gate
@@ -46,17 +46,17 @@ here instead of claiming the standard holds.
 
 ### 3. Ship
 ```bash
-bash .studio-ai/ship.sh "<commit message>"
+bash .studio-ai/precommit.sh "<commit message>"
 ```
 Commit, rebase on `main`, `check`, `build`, `test`, push — in that order, failing closed. It prints
-one line per phase and nothing else; full output goes to `logs/ship-<phase>.log`.
+one line per phase and nothing else; full output goes to `logs/precommit-<phase>.log`.
 
 - **Exit 0** — the branch is pushed. Go to Step 4.
 - **Exit 1** — the failing phase is named with the tail of its log. **Diagnose and fix** — that's
   where judgement matters — then run it again. Re-running amends, so the branch keeps one commit
   however many rounds it takes. Never rationalize a failure ("pre-existing", "unrelated", "flaky").
 
-Don't hand-run `npm run check` / `build` / `test` first. `ship.sh` runs all three, and running the
+Don't hand-run `npm run check` / `build` / `test` first. `precommit.sh` runs all three, and running the
 suite twice forty seconds apart is two turns and about a minute for no new information.
 
 ### 4. Submit
@@ -88,5 +88,5 @@ Do not set the task status by hand afterwards. The PR-merge webhook moves `revie
 - **Never skip the task check** — SDLC traceability.
 - **Never skip the standards confirmation** (Step 2), and never confirm a standard you could not
   verify.
-- **`ship.sh` is the only way to push.** Never `git push` by hand, and never push past a red phase.
+- **`precommit.sh` is the only way to push.** Never `git push` by hand, and never push past a red phase.
 - **Never work on `main`, and never merge.**
