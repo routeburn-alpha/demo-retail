@@ -26,29 +26,29 @@ you must confirm each. The three standards in this repo:
 
 ```bash
 bash .studio-ai/warm.sh         # Prepare the environment — install, database, types, build, test once
-bash .studio-ai/ship.sh "msg"   # Commit, rebase, check, build, test, push — the whole gate
+bash .studio-ai/precommit.sh "msg"   # Commit, rebase, check, build, test, push — the whole gate
 npm run dev                     # SvelteKit dev server (vite)
 npm run test                    # Vitest — component + server/db integration tests
 npm run check                   # svelte-check (app) + tsc on sdlc/ and scripts/
 npm run build                   # Production build
 ```
 
-**Two scripts bracket the work: `warm.sh` prepares, `ship.sh` ships.** Both exist because a fixed
+**Two scripts bracket the work: `warm.sh` prepares, `precommit.sh` ships.** Both exist because a fixed
 sequence with no judgement in it should not be executed one turn at a time. Don't hand-run the gate
-before `ship.sh` — it runs `check`, `build` and `test` itself, and running the suite twice a minute
+before `precommit.sh` — it runs `check`, `build` and `test` itself, and running the suite twice a minute
 apart tells you nothing new.
 
 ### Shipping, in full
 
 1. Confirm each standard in `standards/` with one line of evidence (read them once during the
    plan's self-challenge; you still have them).
-2. `bash .studio-ai/ship.sh "<commit message>"` — exit 0 means pushed; non-zero names the phase
-   that failed and leaves its log in `logs/ship-<phase>.log`. Fix and re-run; it amends.
+2. `bash .studio-ai/precommit.sh "<commit message>"` — exit 0 means pushed; non-zero names the phase
+   that failed and leaves its log in `logs/precommit-<phase>.log`. Fix and re-run; it amends.
 3. Call `finalize_task` with the branch, repo, `productCode` and a `buildReport`. That opens the PR
    and moves the task to review.
 
 That is the whole of it. You do not need to re-read the skill, re-fetch the task you were given, or
-check what branch you are on — `ship.sh` refuses to run on `main`. [`/precommit`](.claude/skills/precommit/SKILL.md)
+check what branch you are on — `precommit.sh` refuses to run on `main`. [`/precommit`](.claude/skills/precommit/SKILL.md)
 has the detail if you need it.
 
 **Setting up is one command: `.studio-ai/warm.sh`.** It installs, starts and seeds a local Postgres,
