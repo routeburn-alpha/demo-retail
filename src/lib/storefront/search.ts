@@ -31,17 +31,61 @@ export function orderFacets(
 }
 
 /**
- * Basic exact search: a product matches when every whitespace-separated query token is a
- * substring of its name or category (case-insensitive). No typo tolerance and no synonym
- * expansion — that richer matching is handled elsewhere.
+ * Computes the Levenshtein distance (edit distance) between two strings.
+ * Uses dynamic programming to calculate the minimum number of insertions, deletions, and substitutions.
+ */
+export function levenshteinDistance(a: string, b: string): number {
+  const m = a.length;
+  const n = b.length;
+  const dp: number[][] = [];
+
+  for (let i = 0; i <= m; i++) {
+    dp[i] = [i];
+  }
+
+  for (let j = 1; j <= n; j++) {
+    dp[0][j] = j;
+  }
+
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      dp[i][j] = Math.min(
+        dp[i - 1][j] + 1,     // deletion
+        dp[i][j - 1] + 1,     // insertion
+        dp[i - 1][j - 1] + cost // substitution
+      );
+    }
+  }
+
+  return dp[m][n];
+}
+
+/**
+ * Returns true if the token matches any word in the text (case-insensitive)
+ * with Levenshtein distance <= threshold.
+ */
+export function fuzzyMatch(token: string, text: string, threshold: number): boolean {
+  const lowerToken = token.toLowerCase();
+  const words = text.toLowerCase().split(/\s+/).filter(Boolean);
+
+  return words.some((word) => levenshteinDistance(lowerToken, word) <= threshold);
+}
+
+/**
+ * Search with fuzzy matching: a product matches when every whitespace-separated query token
+ * fuzzy-matches its name or category with threshold=2 (case-insensitive).
+ * Preserves exact matching as a special case.
  */
 export function search(query: string, catalog: Product[]): Product[] {
   const trimmed = query.trim();
   if (!trimmed) return catalog;
 
   const tokens = trimmed.toLowerCase().split(/\s+/).filter(Boolean);
+  const threshold = 2;
+
   return catalog.filter((product) => {
     const haystack = `${product.name} ${product.category}`.toLowerCase();
-    return tokens.every((token) => haystack.includes(token));
+    return tokens.every((token) => fuzzyMatch(token, haystack, threshold));
   });
 }

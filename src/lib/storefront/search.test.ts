@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
-import { orderFacets, search } from './search';
+import { orderFacets, search, levenshteinDistance, fuzzyMatch } from './search';
 import type { Product } from '$lib/domain/product';
 import type { FacetOrder } from '$lib/domain/facets';
 
@@ -8,6 +8,72 @@ import type { FacetOrder } from '$lib/domain/facets';
 // No DB, no fetch, no mocks — allowed per ARCHITECTURE §4.1 (the search matcher has no I/O).
 const realCatalog: Product[] = JSON.parse(readFileSync('static/catalog.json', 'utf-8'));
 const isWomens = (p: Product) => /women'?s/i.test(p.name);
+
+describe('levenshteinDistance', () => {
+  it('returns 1 for "shel" vs "shell" (one insertion)', () => {
+    expect(levenshteinDistance('shel', 'shell')).toBe(1);
+  });
+
+  it('returns 1 for "jackt" vs "jacket" (one insertion)', () => {
+    expect(levenshteinDistance('jackt', 'jacket')).toBe(1);
+  });
+
+  it('returns 3+ for "xyz" vs "shell" (3+ edits)', () => {
+    expect(levenshteinDistance('xyz', 'shell')).toBeGreaterThanOrEqual(3);
+  });
+});
+
+describe('fuzzyMatch', () => {
+  it('returns true when token "shel" matches "shell jacket" with threshold 2', () => {
+    expect(fuzzyMatch('shel', 'shell jacket', 2)).toBe(true);
+  });
+
+  it('returns false when token "xyz" does not match "shell jacket" with threshold 2', () => {
+    expect(fuzzyMatch('xyz', 'shell jacket', 2)).toBe(false);
+  });
+});
+
+describe('fuzzy search', () => {
+  it('returns Shell Jacket product when searching "shel jaket"', () => {
+    const results = search('shel jaket', realCatalog);
+    expect(results.length).toBeGreaterThan(0);
+    const hasShellJacket = results.some((p) =>
+      /shell/i.test(`${p.name} ${p.category}`) && /jacket/i.test(`${p.name} ${p.category}`)
+    );
+    expect(hasShellJacket).toBe(true);
+  });
+
+  it('returns Shell Jacket product when searching exact "shell jacket"', () => {
+    const results = search('shell jacket', realCatalog);
+    expect(results.length).toBeGreaterThan(0);
+    const hasShellJacket = results.some((p) =>
+      /shell/i.test(`${p.name} ${p.category}`) && /jacket/i.test(`${p.name} ${p.category}`)
+    );
+    expect(hasShellJacket).toBe(true);
+  });
+
+  it('returns Shell Jacket and related products when searching "sh"', () => {
+    const results = search('sh', realCatalog);
+    expect(results.length).toBeGreaterThan(0);
+    const hasShell = results.some((p) =>
+      /shell/i.test(`${p.name} ${p.category}`)
+    );
+    expect(hasShell).toBe(true);
+  });
+
+  it('returns empty array when searching "xyz"', () => {
+    expect(search('xyz', realCatalog)).toEqual([]);
+  });
+
+  it('returns Shell Jacket when searching case-insensitive "SHEL JAKET"', () => {
+    const results = search('SHEL JAKET', realCatalog);
+    expect(results.length).toBeGreaterThan(0);
+    const hasShellJacket = results.some((p) =>
+      /shell/i.test(`${p.name} ${p.category}`) && /jacket/i.test(`${p.name} ${p.category}`)
+    );
+    expect(hasShellJacket).toBe(true);
+  });
+});
 
 describe('exact search', () => {
   it('matches every product whose name or category contains all query tokens', () => {
@@ -18,15 +84,23 @@ describe('exact search', () => {
     ).toBe(true);
   });
 
-  it('does not tolerate typos (fuzzy matching removed)', () => {
-    // "jaket" is a one-character typo of "jacket"; exact matching surfaces nothing.
-    expect(search('jaket', realCatalog)).toEqual([]);
+  it('tolerates typos with fuzzy matching (threshold 2)', () => {
+    // "jaket" is a one-character typo of "jacket"; fuzzy matching should surface it.
+    const results = search('jaket', realCatalog);
+    expect(results.length).toBeGreaterThan(0);
+    const hasJacket = results.some((p) =>
+      /jacket/i.test(`${p.name} ${p.category}`)
+    );
+    expect(hasJacket).toBe(true);
   });
 
-  it('does not expand synonyms (synonym matching removed)', () => {
-    // "womens" (no apostrophe) is not a literal token in any name/category — only the
-    // removed synonym layer used to surface the women's line for it.
-    expect(search('womens', realCatalog)).toEqual([]);
+  it('fuzzy matches "womens" to "women\'s" with 1 edit distance', () => {
+    // "womens" (6 chars) to "women's" (7 chars) is 1 insertion (apostrophe), within threshold 2.
+    // This matches products with women's in the name or category.
+    const results = search('womens', realCatalog);
+    expect(results.length).toBeGreaterThan(0);
+    const allWomens = results.every((p) => /women['']?s/i.test(`${p.name} ${p.category}`));
+    expect(allWomens).toBe(true);
   });
 });
 
