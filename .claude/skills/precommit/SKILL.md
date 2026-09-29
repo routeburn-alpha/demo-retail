@@ -1,6 +1,6 @@
 ---
 name: precommit
-description: Safe pre-commit workflow. Confirms standards, runs the gate and pushes via .studio-ai/precommit.sh, then submits the task for review. Use this instead of git push directly.
+description: Safe pre-commit workflow. Confirms standards, runs the gate and pushes via scripts/precommit.sh, then submits the task for review. Use this instead of git push directly.
 ---
 
 # Precommit Skill
@@ -13,7 +13,7 @@ Two things happen here, and only one of them is yours:
 
 - **Judgement — yours.** Do the standards hold? What does the commit message say? What goes in the
   build report?
-- **The ritual — `.studio-ai/precommit.sh`.** Commit, rebase, check, build, test, push. Fixed sequence,
+- **The ritual — `scripts/precommit.sh`.** Commit, rebase, check, build, test, push. Fixed sequence,
   no decisions in it, so it is one command and not eight turns of you driving it by hand.
 
 ## Flow
@@ -46,7 +46,7 @@ here instead of claiming the standard holds.
 
 ### 3. Ship
 ```bash
-bash .studio-ai/precommit.sh "<commit message>"
+bash scripts/precommit.sh "<commit message>"
 ```
 Commit, rebase on `main`, `check`, `build`, `test`, push — in that order, failing closed. It prints
 one line per phase and nothing else; full output goes to `logs/precommit-<phase>.log`.

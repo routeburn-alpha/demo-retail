@@ -26,7 +26,7 @@ you must confirm each. The three standards in this repo:
 
 ```bash
 bash .studio-ai/warm.sh         # Prepare the environment — install, database, types, build, test once
-bash .studio-ai/precommit.sh "msg"   # Commit, rebase, check, build, test, push — the whole gate
+bash scripts/precommit.sh "msg"   # Commit, rebase, check, build, test, push — the whole gate
 npm run dev                     # SvelteKit dev server (vite)
 npm run test                    # Vitest — component + server/db integration tests
 npm run check                   # svelte-check (app) + tsc on sdlc/ and scripts/
@@ -42,7 +42,7 @@ apart tells you nothing new.
 
 1. Confirm each standard in `standards/` with one line of evidence (read them once during the
    plan's self-challenge; you still have them).
-2. `bash .studio-ai/precommit.sh "<commit message>"` — exit 0 means pushed; non-zero names the phase
+2. `bash scripts/precommit.sh "<commit message>"` — exit 0 means pushed; non-zero names the phase
    that failed and leaves its log in `logs/precommit-<phase>.log`. Fix and re-run; it amends.
 3. Call `finalize_task` with the branch, repo, `productCode` and a `buildReport`. That opens the PR
    and moves the task to review.
