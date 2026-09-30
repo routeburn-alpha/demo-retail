@@ -433,7 +433,10 @@ export async function callTool(name: string, args: Record<string, unknown>): Pro
     .join('');
   const rpc = JSON.parse(data);
   if (rpc.error) throw new Error(`studio-ai error: ${JSON.stringify(rpc.error)}`);
-  return (rpc.result?.content ?? []).map((c: { text?: string }) => c.text ?? '').join('\n');
+  const text = (rpc.result?.content ?? []).map((c: { text?: string }) => c.text ?? '').join('\n');
+  // A failed tool call arrives as a normal result flagged `isError` — not as a JSON-RPC error.
+  if (rpc.result?.isError) throw new Error(`studio-ai ${name}: ${text}`);
+  return text;
 }
 
 export interface StudioTask {
