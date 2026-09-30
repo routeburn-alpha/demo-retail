@@ -354,6 +354,14 @@ describe.skipIf(!hasCredentials())('studio-poll (real studio-ai MCP over HTTP)',
     expect(text).toMatch(/^\S[^()]*? \([a-z0-9_-]+\):\s*$/m);
   });
 
+  it('callTool rejects when the tool reports an error, rather than returning it as text', async () => {
+    // The server answers a failed tool call with HTTP 200 and `isError: true`. Returning that text
+    // as a result is how every rejected rename in demo-reset-studio looked like a success.
+    await expect(callTool('get_task', { productCode: 'search', taskNumber: 99_999_999 })).rejects.toThrow(
+      /Task not found/
+    );
+  });
+
   it('nextBacklogTask (studio-wide) returns {product, number} or null', async () => {
     expect(isTask(await nextBacklogTask())).toBe(true);
   });

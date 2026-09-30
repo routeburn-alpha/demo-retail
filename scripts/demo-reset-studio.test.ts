@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { callTool, hasCredentials } from './studio-poll';
-import { discoverResettable, resetStudio, PROTECTED_NAME } from './demo-reset-studio';
+import { discoverResettable, resetStudio, scrubArchivedTask, PROTECTED_NAME } from './demo-reset-studio';
 
 // Integration tests — these hit the REAL studio-ai MCP HTTP endpoint (no mocks), per
 // standards/no-mocks.md and ARCHITECTURE §4.3. Skipped (never mocked) when no token.
@@ -127,4 +127,26 @@ describe.skipIf(!hasCredentials())('demo-reset-studio (real studio-ai MCP over H
     const detail = await callTool('get_idea', { productCode: PRODUCT, ideaNumber: leaked });
     expect(detail).not.toMatch(/fuzzy|typo|levenshtein/i);
   }, 20_000);
+
+  // Studio refuses to rename a task once it has left the backlog, so an already-archived task —
+  // archived by a closed PR, by hand, or by a reset that predates scrubbing — kept its fuzzy
+  // title and spec in the demo chat's search results. Asserted by reading the task back, for the
+  // same index-staleness reason as the idea test above.
+  it('blanks an already-archived task, title included, and leaves it archived', async () => {
+    const created = await callTool('create_task', {
+      productCode: PRODUCT,
+      name: `Fuzzy typo reset-test task ${RUN_ID}`,
+      specification: `Throwaway fixture for demo-reset-studio run ${RUN_ID}: Levenshtein typo tolerance.`
+    });
+    const n = Number(created.match(/#(\d+)/)?.[1]);
+    expect(n).toBeGreaterThan(0);
+    await callTool('delete_task', { productCode: PRODUCT, taskNumber: n });
+
+    await scrubArchivedTask(PRODUCT, n);
+
+    const detail = await callTool('get_task', { productCode: PRODUCT, taskNumber: n });
+    const own = detail.split('\n=== idea')[0]; // the task's own section, not its linked context
+    expect(own).not.toMatch(/fuzzy|typo|levenshtein/i);
+    expect(own).toMatch(/^#\d+: .* \(Archived,/m);
+  }, 30_000);
 });

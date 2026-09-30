@@ -3,7 +3,9 @@
 // scripts/demo-reset.sh restores the CODE to the `demo-baseline/search-exact` tag, but the
 // Studio task store lives behind the studio-ai MCP server and is unreachable from a shell.
 // This is the Node half: it finds the ideas/tasks a fuzzy-search demo run created and
-// soft-deletes them, so the next replay starts from a clean slate.
+// soft-deletes them, so the next replay starts from a clean slate. It also blanks fuzzy
+// artefacts that are ALREADY archived (by a closed PR, by hand, or by an older reset), because
+// archived records still surface in the demo's agent chat.
 //
 // Discover-and-delete (rather than resetting a hardcoded manifest) works because the slate
 // was purged once: any fuzzy-named idea/task that exists is, by definition, from a demo run.
@@ -42,9 +44,12 @@ const ALREADY_RESET = new Set(['archived']);
 
 const DEFAULT_PRODUCT = 'search';
 
-/** Overwritten into an artefact's text before it is deleted. See `scrub()`. */
+/** Overwritten into an artefact's text before it is deleted. See `scrubIdea()`. */
 const SCRUBBED =
   'Archived demo artefact. Content cleared so it cannot surface in demo search results.';
+
+/** The name a scrubbed artefact carries. A record already named this needs no further work. */
+const SCRUBBED_NAME = /^Archived (demo artefact|test fixture) \d+$/;
 
 export interface StudioItem {
   number: number;
@@ -165,31 +170,124 @@ export async function discoverResettable(
 }
 
 /**
- * Blank an artefact's text before it is deleted.
+ * Blank an idea's text. Ideas can be renamed at any status, archived included.
  *
  * `delete_idea` / `delete_task` are SOFT deletes: the record survives as Archived, and archived
  * records are still returned by the Knowledge-backed search the demo chat uses. Deleting alone
  * therefore left every run's fuzzy artefacts in the demo's search results forever, and the pile
- * only ever grew. Overwriting the name and body first means the remnant matches nothing.
+ * only ever grew. Overwriting the name and body means the remnant matches nothing.
  */
-async function scrub(product: string, kind: 'idea' | 'task', item: StudioItem): Promise<void> {
-  const name = `Archived demo artefact ${item.number}`;
-  if (kind === 'idea') {
-    await callTool('update_idea', {
-      productCode: product,
-      ideaNumber: item.number,
-      name,
-      hypothesis: SCRUBBED,
-      technicalDesign: SCRUBBED
-    });
-  } else {
+async function scrubIdea(product: string, number: number): Promise<void> {
+  await callTool('update_idea', {
+    productCode: product,
+    ideaNumber: number,
+    name: `Archived demo artefact ${number}`,
+    hypothesis: SCRUBBED,
+    technicalDesign: SCRUBBED
+  });
+}
+
+/**
+ * Blank an ARCHIVED task — spec, build report and title — and leave it archived.
+ *
+ * Studio refuses to rename a task once it has left the backlog ("Cannot change name once a task
+ * has left backlog"), but it does allow archived -> backlog. So: blank the text, reopen to the
+ * backlog, rename, and soft-delete again. The task is live for the few hundred milliseconds
+ * between reopen and delete; the delete sits in `finally` so a failed rename can never strand
+ * a fuzzy task in the backlog for an agent to pick up.
+ */
+export async function scrubArchivedTask(product: string, number: number): Promise<void> {
+  await callTool('update_task', {
+    productCode: product,
+    taskNumber: number,
+    specification: SCRUBBED,
+    buildReport: { summary: SCRUBBED, decisions: '', learnings: '', testingSteps: '', verificationPath: '' }
+  });
+  await callTool('update_task', { productCode: product, taskNumber: number, status: 'backlog' });
+  try {
     await callTool('update_task', {
       productCode: product,
-      taskNumber: item.number,
-      name,
-      specification: SCRUBBED
+      taskNumber: number,
+      name: `Archived demo artefact ${number}`
     });
+  } finally {
+    await callTool('delete_task', { productCode: product, taskNumber: number });
   }
+}
+
+/** The name on a record's first line, read from the record itself rather than the index. */
+async function currentName(product: string, kind: 'idea' | 'task', number: number): Promise<string> {
+  const detail =
+    kind === 'idea'
+      ? await callTool('get_idea', { productCode: product, ideaNumber: number })
+      : await callTool('get_task', { productCode: product, taskNumber: number });
+  return detail.match(/^=== \w+ #\d+ "(.*)" ===$/m)?.[1] ?? '';
+}
+
+/**
+ * Archived fuzzy-demo ideas/tasks whose content has not been blanked yet.
+ *
+ * Found through `find_knowledge` — the same index the demo chat searches — filtered to archived
+ * records. Matched on name OR body: an archived record is already deleted, so blanking one that
+ * merely mentions fuzzy search loses nothing live, and it is exactly what the chat would surface.
+ * The index lags writes, so each candidate's name is re-read from the record before it is
+ * returned; that keeps a second run idempotent.
+ */
+export async function discoverArchived(
+  product: string = DEFAULT_PRODUCT,
+  only?: ResetOptions['only']
+): Promise<{ ideas: StudioItem[]; tasks: StudioItem[] }> {
+  const ideas: StudioItem[] = [];
+  const tasks: StudioItem[] = [];
+
+  // `only` is pushed into the index query, so a scoped run never pages the whole archive.
+  const ideaNumbers = only && (only.ideas ?? []);
+  const taskNumbers = only && (only.tasks ?? []);
+
+  for (const [kind, numbers, filters, out] of [
+    ['idea', ideaNumbers, { idea: { validationStatuses: ['archived'], ...(ideaNumbers && { ideaNumbers }) } }, ideas],
+    ['task', taskNumbers, { task: { statuses: ['archived'], ...(taskNumbers && { taskNumbers }) } }, tasks]
+  ] as const) {
+    if (numbers?.length === 0) continue;
+    let cursor: string | undefined;
+    for (let page = 0; page < 50; page++) {
+      const res = JSON.parse(
+        await callTool('find_knowledge', {
+          productCode: product,
+          artifactTypes: [kind],
+          filters,
+          sort: 'identifier',
+          page: { size: 20, ...(cursor ? { cursor } : {}) }
+        })
+      ) as KnowledgePage;
+
+      for (const hit of res.hits) {
+        const number = hit.attributes.ideaNumber ?? hit.attributes.taskNumber;
+        if (!number || SCRUBBED_NAME.test(hit.title) || PROTECTED_NAME.test(hit.title)) continue;
+        const text = `${hit.title}\n${hit.summary ?? ''}\n${hit.evidence.map((e) => e.snippet).join('\n')}`;
+        if (!FUZZY_NAME.test(text)) continue;
+
+        const name = await currentName(product, kind, number);
+        if (SCRUBBED_NAME.test(name) || PROTECTED_NAME.test(name)) continue;
+        out.push({ number, name, status: 'archived' });
+      }
+
+      if (!res.nextCursor) break;
+      cursor = res.nextCursor;
+    }
+  }
+
+  return { ideas, tasks };
+}
+
+interface KnowledgePage {
+  hits: {
+    title: string;
+    summary?: string;
+    evidence: { snippet: string }[];
+    attributes: { ideaNumber?: number; taskNumber?: number };
+  }[];
+  nextCursor?: string | null;
 }
 
 /** Discover, then (with `apply`) soft-delete. Idempotent: a second run finds nothing. */
@@ -197,8 +295,10 @@ export async function resetStudio(opts: ResetOptions = {}): Promise<ResetResult>
   const product = opts.product ?? DEFAULT_PRODUCT;
   const apply = opts.apply ?? false;
 
-  const found = await discoverResettable(product);
-  let { ideas, tasks } = found;
+  const live = await discoverResettable(product);
+  const archived = await discoverArchived(product, opts.only);
+  let ideas = [...live.ideas, ...archived.ideas];
+  let tasks = [...live.tasks, ...archived.tasks];
 
   if (opts.only) {
     const onlyIdeas = opts.only.ideas ?? [];
@@ -214,20 +314,27 @@ export async function resetStudio(opts: ResetOptions = {}): Promise<ResetResult>
   const deletedTasks: StudioItem[] = [];
   const reason = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
+  // A live record is deleted as well as blanked; an archived one only needs blanking.
   for (const idea of ideas) {
     try {
-      await scrub(product, 'idea', idea);
-      await callTool('delete_idea', { productCode: product, ideaNumber: idea.number });
+      await scrubIdea(product, idea.number);
+      if (idea.status !== 'archived') {
+        await callTool('delete_idea', { productCode: product, ideaNumber: idea.number });
+      }
       deletedIdeas.push(idea);
     } catch (e) {
       failed.push({ kind: 'idea', number: idea.number, reason: reason(e) });
     }
   }
 
+  // Tasks are deleted FIRST: a task that has left the backlog cannot be renamed, and the
+  // archived path is the one that knows how to blank a title anyway.
   for (const task of tasks) {
     try {
-      await scrub(product, 'task', task);
-      await callTool('delete_task', { productCode: product, taskNumber: task.number });
+      if (task.status !== 'archived') {
+        await callTool('delete_task', { productCode: product, taskNumber: task.number });
+      }
+      await scrubArchivedTask(product, task.number);
       deletedTasks.push(task);
     } catch (e) {
       failed.push({ kind: 'task', number: task.number, reason: reason(e) });
@@ -267,9 +374,12 @@ async function main(): Promise<void> {
   if (total === 0) {
     console.log('✓ Studio already clean — no fuzzy-search demo artifacts to remove.');
   } else {
-    const verb = result.applied ? 'Deleted' : 'Would delete';
-    for (const i of result.ideas) console.log(`  ${verb} idea #${i.number}: ${i.name} (${i.status})`);
-    for (const t of result.tasks) console.log(`  ${verb} task #${t.number}: ${t.name} (${t.status})`);
+    const verb = (item: StudioItem) =>
+      item.status === 'archived'
+        ? result.applied ? 'Blanked archived' : 'Would blank archived'
+        : result.applied ? 'Deleted' : 'Would delete';
+    for (const i of result.ideas) console.log(`  ${verb(i)} idea #${i.number}: ${i.name}`);
+    for (const t of result.tasks) console.log(`  ${verb(t)} task #${t.number}: ${t.name}`);
     console.log(
       result.applied
         ? `✓ Studio reset — removed ${total} fuzzy-search demo artifact(s).`
