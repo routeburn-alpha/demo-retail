@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { render } from 'vitest-browser-svelte';
+import '../app.css';
 import StorefrontPage from './+page.svelte';
 import type { Product } from '$lib/domain/product';
 import { POPULAR_QUERIES } from '$lib/storefront/popular-queries';
@@ -145,10 +146,10 @@ describe('Routeburn storefront', () => {
     await expect.element(input).toHaveClass('text-base');
   });
 
-  it('page root container has a warm off-white background', async () => {
+  it('page root container has a green background', async () => {
     const screen = render(StorefrontPage, { data });
     const pageRoot = screen.getByTestId('page-root');
-    await expect.element(pageRoot).toHaveStyle(`background-color: rgb(250, 247, 242)`);
+    await expect.element(pageRoot).toHaveStyle(`background-color: rgb(0, 128, 0)`);
   });
 
   it('zero-results shows exactly 5 suggestion pills with data-testid="suggestion-pill"', async () => {
