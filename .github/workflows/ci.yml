@@ -1,5 +1,4 @@
-# Server-side safety net that mirrors the local `/precommit` gate (FRAMEWORK.md
-# Opinion 5: "the push gate is the only door"). It does NOT replace `/precommit`
+# Server-side safety net that mirrors the local `scripts/ship.sh` gate. It does NOT replace it
 # — it re-runs the same gate after push so a change that bypassed the local gate
 # cannot reach `main` unnoticed.
 #
@@ -13,7 +12,7 @@
 # standards/no-hidden-products-in-search.md) turns `security` red while `check`,
 # `build` and `test` stay green, so the PR names the concern that failed.
 #
-# The local gate is UNCHANGED. `npm run precommit` (check -> build -> test) still
+# The local gate is UNCHANGED. `scripts/ship.sh` (check -> build -> test) still
 # runs everything, including the security tests, because `npm test` runs all
 # vitest projects. Only CI splits the selection, via the `security` project in
 # vitest.workspace.ts — a project, not a CLI `--exclude`, because a project's own

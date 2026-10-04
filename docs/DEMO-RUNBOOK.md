@@ -4,7 +4,7 @@ A strict, follow-along script for the **preview-URL demo**: a *managed* agent cl
 walks the full SDLC autonomously, and opens a PR with a **public Vercel preview** — no merge to
 production, so you can run it again and again from a clean "before."
 
-This is the **autonomous / async** companion to [`DEMO-SCRIPT.md`](DEMO-SCRIPT.md) (the ~6-minute
+This is the **autonomous / async** companion to `DEMO-SCRIPT.md` (retired) (the ~6-minute
 *live human* `/work-on-task` walk). Same road, same gates, same lineage — but here the agent runs
 headless and the payoff is a shareable preview URL rather than a merge. Use this one when you want to
 show the **fleet / async** story and be able to re-run it on demand.

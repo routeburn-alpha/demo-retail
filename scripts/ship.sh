@@ -1,5 +1,5 @@
 #!/bin/bash
-# Precommit entry point for demo-retail — the mirror of .studio-ai/warm.sh.
+# The ship script for demo-retail, called by the precommit skill: the mirror of .studio-ai/warm.sh.
 #
 # `warm.sh` takes the environment setup out of the agent's turn loop; this takes the precommit
 # ritual out of it. Both exist for the same reason: a fixed sequence of commands with no judgement
@@ -10,11 +10,11 @@
 # the standards off disk, push. Half the run, almost none of it thinking.
 #
 # What stays with the agent, because it IS judgement:
-#   - whether the change is right, and whether the standards hold (the confirmStandards gate)
+#   - whether the change is right, and whether the standards hold (the precommit skill)
 #   - the commit message, passed in here
 #   - calling `finalize_task` afterwards, which opens the PR and moves the task to review
 #
-# Usage:  bash scripts/precommit.sh "<commit message>"
+# Usage:  bash scripts/ship.sh "<commit message>"
 #
 # Exit 0  the branch is pushed and ready for finalize_task.
 # Exit 1  a phase failed. The failing phase is named, with the tail of its log. Fix it and re-run;
@@ -27,7 +27,7 @@ cd "$(dirname "$0")/.."
 
 MESSAGE="${1:-}"
 if [ -z "$MESSAGE" ]; then
-	echo "[precommit] usage: bash scripts/precommit.sh \"<commit message>\"" >&2
+	echo "[ship] usage: bash scripts/ship.sh \"<commit message>\"" >&2
 	exit 1
 fi
 
@@ -35,7 +35,7 @@ mkdir -p logs
 
 BRANCH="$(git rev-parse --abbrev-ref HEAD)"
 if [ "$BRANCH" = "main" ]; then
-	echo "[precommit] refusing: you are on main. Create your branch first." >&2
+	echo "[ship] refusing: you are on main. Create your branch first." >&2
 	exit 1
 fi
 
@@ -45,14 +45,14 @@ fi
 phase() {
 	local name="$1"
 	shift
-	local log="logs/precommit-${name}.log"
-	printf '[precommit] %-6s ' "$name"
+	local log="logs/ship-${name}.log"
+	printf '[ship] %-6s ' "$name"
 	if "$@" > "$log" 2>&1; then
 		echo "ok"
 		return 0
 	fi
 	echo "FAILED"
-	echo "[precommit] --- last 30 lines of ${log} ---" >&2
+	echo "[ship] --- last 30 lines of ${log} ---" >&2
 	tail -30 "$log" >&2
 	return 1
 }
@@ -63,18 +63,18 @@ if [ -n "$(git status --porcelain)" ]; then
 	git add -A
 	if [ "$(git log -1 --pretty=%s 2>/dev/null)" = "$MESSAGE" ]; then
 		git commit -q --amend --no-edit
-		echo "[precommit] commit amended"
+		echo "[ship] commit amended"
 	else
 		git commit -q -m "$MESSAGE"
-		echo "[precommit] commit created"
+		echo "[ship] commit created"
 	fi
 else
-	echo "[precommit] nothing to commit"
+	echo "[ship] nothing to commit"
 fi
 
 phase fetch git fetch origin main || exit 1
 phase rebase git -c core.editor=true rebase origin/main || {
-	echo "[precommit] rebase failed — resolve it by hand, then re-run." >&2
+	echo "[ship] rebase failed — resolve it by hand, then re-run." >&2
 	exit 1
 }
 
@@ -84,18 +84,18 @@ phase rebase git -c core.editor=true rebase origin/main || {
 # concurrently — measured at 9s and 8s serially. `test` runs alone afterwards: it drives a real
 # Chromium, and starting it beside a vite build makes a CPU-bound suite contend for the same cores,
 # which is how a pure-render test ends up timing out on a small box.
-printf '[precommit] check+build '
-npm run check > logs/precommit-check.log 2>&1 &
+printf '[ship] check+build '
+npm run check > logs/ship-check.log 2>&1 &
 CHECK_PID=$!
-npm run build > logs/precommit-build.log 2>&1 &
+npm run build > logs/ship-build.log 2>&1 &
 BUILD_PID=$!
 CHECK_RC=0; BUILD_RC=0
 wait $CHECK_PID || CHECK_RC=$?
 wait $BUILD_PID || BUILD_RC=$?
 if [ "$CHECK_RC" -ne 0 ] || [ "$BUILD_RC" -ne 0 ]; then
 	echo "FAILED"
-	[ "$CHECK_RC" -ne 0 ] && { echo "[precommit] --- last 30 lines of logs/precommit-check.log ---" >&2; tail -30 logs/precommit-check.log >&2; }
-	[ "$BUILD_RC" -ne 0 ] && { echo "[precommit] --- last 30 lines of logs/precommit-build.log ---" >&2; tail -30 logs/precommit-build.log >&2; }
+	[ "$CHECK_RC" -ne 0 ] && { echo "[ship] --- last 30 lines of logs/ship-check.log ---" >&2; tail -30 logs/ship-check.log >&2; }
+	[ "$BUILD_RC" -ne 0 ] && { echo "[ship] --- last 30 lines of logs/ship-build.log ---" >&2; tail -30 logs/ship-build.log >&2; }
 	exit 1
 fi
 echo "ok"
@@ -104,5 +104,5 @@ phase test npm run test || exit 1
 
 phase push git push -u --force-with-lease origin "$BRANCH" || exit 1
 
-echo "[precommit] pushed ${BRANCH}"
-echo "[precommit] next: call finalize_task with this branch, the repo, the productCode and a buildReport."
+echo "[ship] pushed ${BRANCH}"
+echo "[ship] next: call finalize_task with this branch, the repo, the productCode and a buildReport."
