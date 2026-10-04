@@ -1,7 +1,7 @@
 # Standards — the active gate
 
 These are not documentation an agent *might* read. They are **data the agent is forced to answer
-to** at three checkpoints in the SDLC. This is Opinion 4 in [`../FRAMEWORK.md`](../FRAMEWORK.md).
+to** at three checkpoints in the SDLC.
 
 ## The three-point flow
 

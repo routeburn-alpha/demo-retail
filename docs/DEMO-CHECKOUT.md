@@ -16,7 +16,7 @@ part of the demo is pre-baked (see [Pre-bake](#pre-bake-morning-of-the-demo)).
 > un-shipped, so the template must stay untouched. The exact-name suffix is also what makes reset
 > safe: reset matches that full name, never a keyword (see the "reset deletes real backlog" incident).
 
-Use the same notation as [`DEMO-SCRIPT.md`](DEMO-SCRIPT.md): **🖥️ DO**, **🎙️ SAY**, **⏸️ PAUSE**.
+Use the same notation as `DEMO-SCRIPT.md` (retired): **🖥️ DO**, **🎙️ SAY**, **⏸️ PAUSE**.
 
 ---
 
@@ -152,7 +152,7 @@ the reset work below is built.
 | State | What the run changes | Reset | Tooling |
 |-------|----------------------|-------|---------|
 | **Studio** | Run idea + 8 tasks, shipped/review statuses, run history | Archive the run idea and its tasks by **exact run name**. Template #2 stays untouched. | Manual (ask Claude, or the Studio UI) |
-| **Code on `main`** | Merged PRs (#B, #C, and anything else merged) are **live on production** | Revert PR restoring `main` to the checkout baseline, through `/precommit` | Manual |
+| **Code on `main`** | Merged PRs (#B, #C, and anything else merged) are **live on production** | Revert PR restoring `main` to the checkout baseline, through `scripts/precommit.sh` | Manual |
 | **Branches + previews** | Unmerged run branches and their Vercel previews | `npm run demo:reset <branch>` per branch | ✅ exists |
 | **Database** | Stock decremented; carts and orders created | Restore stock from the run's orders, then delete run carts and orders (below) | Manual |
 

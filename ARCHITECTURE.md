@@ -4,10 +4,10 @@ This is the **authoritative technical-design context** for the Routeburn storefr
 `search-discovery` studio that drives it. Every spec, idea technical-design, and task in studio-ai
 should be written and reviewed against the rules below. It is intentionally **prescriptive**: it
 uses **MUST / SHOULD / MAY** the way [`standards/`](standards/) does, because in this repo design
-conventions are a gate, not a suggestion (see [`FRAMEWORK.md`](FRAMEWORK.md), Opinion 4).
+conventions are a gate, not a suggestion.
 
-> Read order for a new agent: [`FRAMEWORK.md`](FRAMEWORK.md) (the SDLC) → this file (how code is
-> shaped) → [`standards/`](standards/) (the active gate) → [`sdlc/core.md`](sdlc/core.md).
+> Read order for a new agent: [`AGENTS.md`](AGENTS.md) → this file (how code is shaped) →
+> [`standards/`](standards/) (the active gate).
 
 ---
 
@@ -159,17 +159,15 @@ Per [`standards/no-mocks.md`](standards/no-mocks.md):
 
 - **Build:** `vite build` → `@sveltejs/adapter-vercel` emits Vercel-native output; `vercel.ts`
   (`@vercel/config`) declares `framework: 'sveltekit'`, `buildCommand: 'npm run build'`.
-- **The gate (`npm run precommit`):** `check` (svelte-check on the app + `tsc` on framework code in
-  `sdlc/`/`scripts/`) → `build` → `test`. The framework's own code is held to the same gate as the app.
-- **Local `/precommit` is the primary door** — the gate runs locally/in-agent before push via
-  [`/precommit`](.claude/skills/precommit/SKILL.md) ("the push gate is the only door"). A change
+- **The gate (`scripts/precommit.sh`):** `check` (svelte-check on the app + `tsc` on `scripts/`) →
+  `build` → `test` → push. It is the only way to push. A change
   **MUST** pass the full gate before it can land; do not rationalize a red test as pre-existing/flaky.
 - **Server-side CI mirrors the gate, as four named jobs** —
   [`.github/workflows/ci.yml`](.github/workflows/ci.yml) re-runs the same gate on every PR into `main`
   as **`check`**, **`build`**, **`test`** and **`security`**, in parallel. Splitting it is a
   *reporting* decision, not a weaker gate: a failure names the concern that failed, so a hidden-product
   leak reddens `security` alone (see [`standards/no-hidden-products-in-search.md`](standards/no-hidden-products-in-search.md)).
-  It is **not** a replacement for `/precommit`. CI runs the same **real** services as local (real
+  It is **not** a replacement for `scripts/precommit.sh`. CI runs the same **real** services as local (real
   Chromium; real Postgres via a `DATABASE_URL` secret + `db:push`) so the no-mocks standard holds in
   CI exactly as locally — a missing DB secret fails the job rather than silently skipping the
   integration test.
@@ -198,7 +196,7 @@ this rulebook exists to enforce:
    Postgres). Confirm parallel-safe data isolation. Justify any pure unit test (no I/O).
 7. **Standards** — one row per [`standards/`](standards/) entry, declaring how the plan respects it.
 8. **Scope** — minimal change; touched files left cleaner; follow-ups listed as learnings, **not**
-   spun off as new tasks autonomously (CLAUDE.md rule 8).
+   spun off as new tasks autonomously (the agent never creates tasks).
 
 ---
 
@@ -206,8 +204,7 @@ this rulebook exists to enforce:
 
 | Layer / concern        | Where |
 | ---------------------- | ----- |
-| SDLC & opinions        | [`FRAMEWORK.md`](FRAMEWORK.md), [`sdlc/core.md`](sdlc/core.md) |
-| Agent rules            | [`CLAUDE.md`](CLAUDE.md) |
+| Agent rules            | [`AGENTS.md`](AGENTS.md), [`work-on-task`](.claude/skills/work-on-task/SKILL.md) |
 | Active standards gate  | [`standards/`](standards/) |
 | Data layer             | `src/lib/server/db/{schema,select,map,queries,index}.ts` |
 | Pure storefront logic  | `src/lib/storefront/{search,popular-queries}.ts` |

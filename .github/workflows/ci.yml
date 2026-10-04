@@ -1,5 +1,4 @@
-# Server-side safety net that mirrors the local `/precommit` gate (FRAMEWORK.md
-# Opinion 5: "the push gate is the only door"). It does NOT replace `/precommit`
+# Server-side safety net that mirrors the local `scripts/precommit.sh` gate. It does NOT replace it
 # — it re-runs the same gate after push so a change that bypassed the local gate
 # cannot reach `main` unnoticed.
 #

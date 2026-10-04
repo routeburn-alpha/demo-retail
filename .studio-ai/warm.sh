@@ -5,7 +5,7 @@
 # before any task exists; change no source file; report a failing test, don't fix it — there is
 # no task yet. Idempotent: safe to re-run.
 #
-# Captures nothing itself. Whoever calls this redirects output to a log file — see CLAUDE.md.
+# Captures nothing itself. Whoever calls this redirects output to a log file — see the platform's warm prompt.
 # One place owns that, not every script that might run.
 
 set -e

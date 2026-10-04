@@ -5,7 +5,7 @@ Format: **[SCREEN]** = what is visible. Plain text = what you say.
 
 The **studio-first** demo: one customer complaint walked from idea → design → managed-agent
 execution → PR → production, narrated end to end. Its siblings tell the same story from other
-angles — [`DEMO-SCRIPT.md`](DEMO-SCRIPT.md) is the ~6-minute *live human* `/work-on-task` walk,
+angles — `DEMO-SCRIPT.md` (retired) is the ~6-minute *live human* `/work-on-task` walk,
 [`DEMO-RUNBOOK.md`](DEMO-RUNBOOK.md) is the repeatable preview-URL flow (both still written around
 the low-stock-badge feature). Reset mechanics for this one: [`DEMO-RESET.md`](DEMO-RESET.md) and
 `scripts/demo-reset.sh`.

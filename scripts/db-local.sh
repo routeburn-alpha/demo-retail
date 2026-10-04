@@ -1,8 +1,7 @@
 #!/bin/bash
 # Local Postgres bootstrap, called via `npm run db:local` from .studio-ai/warm.sh.
 #
-# No-ops when a real (Neon) DATABASE_URL is already configured — INITIAL-SETUP.md is explicit that
-# db:push/db:seed rewrite shared state other devs and agents depend on, so this never touches it.
+# No-ops when a real (Neon) DATABASE_URL is already configured: db:push/db:seed rewrite shared state other devs and agents depend on, so this never touches it.
 
 set -e
 cd "$(dirname "$0")/.."
