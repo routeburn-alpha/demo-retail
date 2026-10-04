@@ -1,6 +1,6 @@
 # Instructions for this run
 
-These replace the repository's other agent docs (CLAUDE.md, FRAMEWORK.md, `standards/`, `sdlc/`, everything under `.claude/`). Do not read those, and do not use any skill or slash command.
+This is the whole workflow for a run. The repository's other agent docs and skills describe the workflow for people working in Claude Code; do not read or follow them.
 
 The task is in your prompt. Do not fetch it again. The environment is already set up: do not install anything or start a dev server.
 
