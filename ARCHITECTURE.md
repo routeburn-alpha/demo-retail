@@ -23,7 +23,7 @@ conventions are a gate, not a suggestion.
 | Styling          | Tailwind CSS 3 + CSS custom-property palette                          |
 | Deploy target    | Vercel via `@sveltejs/adapter-vercel`, configured by `vercel.ts`      |
 | Tests            | Vitest two-runtime workspace — real browser (Playwright) + real Postgres |
-| Build/test gate  | `npm run precommit` = `check && build && test`, run pre-push by the agent |
+| Build/test gate  | `scripts/ship.sh` = `check && build && test && push`, run by the precommit skill |
 
 > **Note on history:** earlier revisions of this app were fully client-side with no database. That
 > is no longer true — a real Drizzle/Postgres domain layer (products, inventory, carts, orders, and
@@ -159,7 +159,7 @@ Per [`standards/no-mocks.md`](standards/no-mocks.md):
 
 - **Build:** `vite build` → `@sveltejs/adapter-vercel` emits Vercel-native output; `vercel.ts`
   (`@vercel/config`) declares `framework: 'sveltekit'`, `buildCommand: 'npm run build'`.
-- **The gate (`scripts/precommit.sh`):** `check` (svelte-check on the app + `tsc` on `scripts/`) →
+- **The gate (`scripts/ship.sh`, run by the [`precommit`](.claude/skills/precommit/SKILL.md) skill):** `check` (svelte-check on the app + `tsc` on `scripts/`) →
   `build` → `test` → push. It is the only way to push. A change
   **MUST** pass the full gate before it can land; do not rationalize a red test as pre-existing/flaky.
 - **Server-side CI mirrors the gate, as four named jobs** —
@@ -167,7 +167,7 @@ Per [`standards/no-mocks.md`](standards/no-mocks.md):
   as **`check`**, **`build`**, **`test`** and **`security`**, in parallel. Splitting it is a
   *reporting* decision, not a weaker gate: a failure names the concern that failed, so a hidden-product
   leak reddens `security` alone (see [`standards/no-hidden-products-in-search.md`](standards/no-hidden-products-in-search.md)).
-  It is **not** a replacement for `scripts/precommit.sh`. CI runs the same **real** services as local (real
+  It is **not** a replacement for `scripts/ship.sh`. CI runs the same **real** services as local (real
   Chromium; real Postgres via a `DATABASE_URL` secret + `db:push`) so the no-mocks standard holds in
   CI exactly as locally — a missing DB secret fails the job rather than silently skipping the
   integration test.
@@ -204,7 +204,7 @@ this rulebook exists to enforce:
 
 | Layer / concern        | Where |
 | ---------------------- | ----- |
-| Agent rules            | [`AGENTS.md`](AGENTS.md), [`work-on-task`](.claude/skills/work-on-task/SKILL.md) |
+| Agent rules            | [`AGENTS.md`](AGENTS.md), [`work-on-task`](.claude/skills/work-on-task/SKILL.md), [`precommit`](.claude/skills/precommit/SKILL.md) |
 | Active standards gate  | [`standards/`](standards/) |
 | Data layer             | `src/lib/server/db/{schema,select,map,queries,index}.ts` |
 | Pure storefront logic  | `src/lib/storefront/{search,popular-queries}.ts` |
