@@ -78,7 +78,7 @@
         bind:value={query}
         aria-label="Search"
         placeholder="Search the catalogue…"
-        class="w-full rounded-full border border-line bg-bg py-3 pl-10 pr-10 text-base text-ink placeholder:text-ink/55 focus:border-accent focus:outline-none"
+        class="w-full rounded-full border border-line bg-gray-100 py-3 pl-10 pr-10 text-base text-ink placeholder:text-ink/55 focus:border-accent focus:outline-none"
       />
       {#if query.length > 0}
         <button
