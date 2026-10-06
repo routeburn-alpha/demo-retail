@@ -73,6 +73,11 @@ describe('Routeburn storefront', () => {
       .toBeVisible();
   });
 
+  it('the hero banner highlights the winter sale', async () => {
+    const screen = render(StorefrontPage, { data });
+    await expect.element(screen.getByText('Winter sale now live')).toBeVisible();
+  });
+
   it('the hero banner has a Routeburn trail backdrop image', async () => {
     const screen = render(StorefrontPage, { data });
     await expect.element(screen.getByTestId('hero-backdrop')).toBeInTheDocument();
