@@ -30,6 +30,101 @@ describe('exact search', () => {
   });
 });
 
+// Pure logic; search() is a stateless function over an in-memory catalogue array — no DB, no
+// fetch, no mocks. This describes the typo-tolerant (Levenshtein distance) matcher from task
+// #1228, which has *not* been implemented yet: `search()` above is still plain exact-substring
+// matching. Cases that need the new matcher are written with `it.fails`, Vitest's "expected to
+// fail" form — the assertion is the real target behaviour, and the test reports green today
+// because that assertion currently throws. The day someone implements the matcher these flip to
+// unexpectedly-passing (red), which is the signal to turn them into plain `it` blocks. This keeps
+// the whole suite green against today's exact-match baseline while still pinning down the contract
+// for whoever builds the feature. Distances below were computed and verified against the real
+// `static/catalog.json`, not assumed.
+describe('typo-tolerant search (Levenshtein distance)', () => {
+  it('exact match baseline — exact tokens still match, and rank first', () => {
+    const results = search('jacket', realCatalog);
+    const ids = results.map((p) => p.id);
+    expect(ids).toEqual(
+      expect.arrayContaining(['shell-001', 'down-001', 'w-shell-001', 'w-down-001'])
+    );
+  });
+
+  it.fails('tolerates a single-character typo ("chell" is distance 1 from "shell")', () => {
+    const results = search('chell', realCatalog);
+    expect(results.map((p) => p.id)).toEqual(
+      expect.arrayContaining(['shell-001', 'w-shell-001'])
+    );
+  });
+
+  it.fails('tolerates a missing character ("flece" is distance 1 from "fleece")', () => {
+    const results = search('flece', realCatalog);
+    expect(results.map((p) => p.id)).toEqual(
+      expect.arrayContaining(['fleece-001', 'w-fleece-001'])
+    );
+  });
+
+  it('does not match once the distance exceeds the threshold ("jaketty" is distance 3 from "jacket")', () => {
+    expect(search('jaketty', realCatalog)).toEqual([]);
+  });
+
+  it.fails(
+    'matches a multi-token query when every token is within tolerance ("shel jackat" ~ "shell jacket")',
+    () => {
+      // "shel" is distance 1 from "shell", "jackat" is distance 1 from "jacket" — both tokens
+      // must independently match the same product's "shell jacket" category.
+      const results = search('shel jackat', realCatalog);
+      expect(results.map((p) => p.id)).toEqual(
+        expect.arrayContaining(['shell-001', 'w-shell-001'])
+      );
+    }
+  );
+
+  it('returns no results for a query too far from every product ("xyz")', () => {
+    expect(search('xyz', realCatalog)).toEqual([]);
+  });
+
+  it('is case-insensitive ("SHELL" matches "shell jacket")', () => {
+    const results = search('SHELL', realCatalog);
+    expect(results.map((p) => p.id)).toEqual(
+      expect.arrayContaining(['shell-001', 'w-shell-001'])
+    );
+  });
+
+  it.fails('ranks an exact substring match ahead of an edit-distance-only match', () => {
+    // Synthetic two-product fixture (not the real catalogue) to isolate ranking: "Shell Jacket"
+    // contains the query token literally; "Shall Jaclet" only matches via edit distance
+    // (distance 1 on "shall"~"shell"). Listed fuzzy-first on purpose so the assertion actually
+    // exercises re-ranking rather than passing by coincidence of input order.
+    const catalog: Product[] = [
+      {
+        id: 'fuzzy',
+        name: 'Shall Jaclet',
+        category: 'outerwear',
+        price: 1,
+        description: '',
+        imageUrl: ''
+      },
+      {
+        id: 'exact',
+        name: 'Shell Jacket',
+        category: 'outerwear',
+        price: 1,
+        description: '',
+        imageUrl: ''
+      }
+    ];
+    expect(search('shell', catalog).map((p) => p.id)).toEqual(['exact', 'fuzzy']);
+  });
+
+  it.fails('returns no results for an empty query', () => {
+    expect(search('', realCatalog)).toEqual([]);
+  });
+
+  it.fails('returns no results for a whitespace-only query', () => {
+    expect(search('   ', realCatalog)).toEqual([]);
+  });
+});
+
 describe("women's clothing line", () => {
   it('the catalogue carries at least 6 women\'s clothing products', () => {
     expect(realCatalog.filter(isWomens).length).toBeGreaterThanOrEqual(6);
