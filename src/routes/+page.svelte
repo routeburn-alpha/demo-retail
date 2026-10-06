@@ -139,6 +139,9 @@
     <div class="mx-auto max-w-6xl px-6 py-16 text-bg sm:py-20">
       <p class="mb-3 text-xs uppercase tracking-[0.3em] text-bg/80">Winter 2026</p>
       <h1 class="font-display text-3xl leading-tight sm:text-4xl md:text-5xl">Chase the ridgeline</h1>
+      <p class="mt-3 text-sm font-semibold tracking-wide text-amber-300 sm:text-base">
+        Winter sale now live
+      </p>
     </div>
   </section>
 {/if}
