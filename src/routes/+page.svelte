@@ -137,8 +137,8 @@
       style="background: linear-gradient(90deg, rgba(15,26,20,0.7) 0%, rgba(15,26,20,0.25) 55%, rgba(15,26,20,0) 100%);"
     ></div>
     <div class="mx-auto max-w-6xl px-6 py-16 text-bg sm:py-20">
-      <p class="mb-3 text-xs uppercase tracking-[0.3em] text-bg/80">Autumn 2026</p>
-      <h1 class="font-display text-3xl leading-tight sm:text-4xl md:text-5xl">Built for the long way home</h1>
+      <p class="mb-3 text-xs uppercase tracking-[0.3em] text-bg/80">Winter 2026</p>
+      <h1 class="font-display text-3xl leading-tight sm:text-4xl md:text-5xl">Chase the ridgeline</h1>
     </div>
   </section>
 {/if}
