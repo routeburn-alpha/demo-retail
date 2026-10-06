@@ -20,4 +20,3 @@ printf 'DATABASE_URL="postgresql://demoretail:demoretail@localhost:5432/demoreta
 
 npm run db:push
 npm run db:seed
-npm run db:seed:standards
