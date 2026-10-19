@@ -18,15 +18,46 @@ describe('exact search', () => {
     ).toBe(true);
   });
 
-  it('does not tolerate typos (fuzzy matching removed)', () => {
-    // "jaket" is a one-character typo of "jacket"; exact matching surfaces nothing.
-    expect(search('jaket', realCatalog)).toEqual([]);
+  it('exact-match baseline queries are unchanged by fuzzy matching', () => {
+    // Every token here is a literal substring of some product, so fuzzy matching never kicks
+    // in — same result set as before the fuzzy matcher was added.
+    expect(search('tent', realCatalog)).toEqual(
+      realCatalog.filter((p) => `${p.name} ${p.category}`.toLowerCase().includes('tent'))
+    );
+    expect(search("women's", realCatalog).every(isWomens)).toBe(true);
+  });
+});
+
+// Fuzzy token matching: a query token of 4+ characters also matches a product token within a
+// bounded Levenshtein edit distance (1 edit for 4-6 chars, 2 edits for 7+). Pure logic, no I/O —
+// same realCatalog fixture and synthetic in-memory fixtures below, no DB/fetch involved.
+function makeProduct(name: string, category: string): Product {
+  return { id: name, name, category, price: 1, description: '', imageUrl: '' };
+}
+
+describe('fuzzy token matching', () => {
+  it('"shel jaket" (two one-letter typos) surfaces the Storm Cirrus Shell jacket', () => {
+    const results = search('shel jaket', realCatalog);
+    expect(results.some((p) => p.name === 'Storm Cirrus Shell')).toBe(true);
   });
 
-  it('does not expand synonyms (synonym matching removed)', () => {
-    // "womens" (no apostrophe) is not a literal token in any name/category — only the
-    // removed synonym layer used to surface the women's line for it.
-    expect(search('womens', realCatalog)).toEqual([]);
+  it('a single-letter typo in a 4-6 character token still matches ("jaket" vs "jacket")', () => {
+    const results = search('jaket', realCatalog);
+    expect(results.length).toBeGreaterThan(0);
+  });
+
+  it('short tokens (<4 chars) get exact/substring matching only, never fuzzy', () => {
+    const catalog = [makeProduct('Trail Cap', 'headwear'), makeProduct('Trail Cab', 'headwear')];
+    // "cap" is a literal substring of "Trail Cap" only; "Trail Cab" is one edit away but its
+    // length (3) is below the fuzzy floor, so it must not surface.
+    expect(search('cap', catalog).map((p) => p.name)).toEqual(['Trail Cap']);
+  });
+
+  it('exact hits rank before fuzzy hits, regardless of catalogue order', () => {
+    // "Typo Only" precedes "Exact Match" in the catalogue, but only matches "jacket" fuzzily
+    // (its category is "jaket"), so it must still rank after the exact match.
+    const catalog = [makeProduct('Typo Only', 'jaket'), makeProduct('Exact Match', 'jacket')];
+    expect(search('jacket', catalog).map((p) => p.name)).toEqual(['Exact Match', 'Typo Only']);
   });
 });
 
