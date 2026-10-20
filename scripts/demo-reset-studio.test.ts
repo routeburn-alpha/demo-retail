@@ -1,7 +1,15 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { callTool, hasCredentials } from './studio-poll';
-import { discoverResettable, resetStudio, scrubArchivedTask, PROTECTED_NAME } from './demo-reset-studio';
+import {
+  CHECKOUT_RUN_NAME,
+  discoverCheckoutRun,
+  discoverResettable,
+  parseItemLine,
+  resetStudio,
+  scrubArchivedTask,
+  PROTECTED_NAME
+} from './demo-reset-studio';
 
 // Integration tests — these hit the REAL studio-ai MCP HTTP endpoint (no mocks), per
 // standards/no-mocks.md and ARCHITECTURE §4.3. Skipped (never mocked) when no token.
@@ -17,10 +25,10 @@ const FIXTURE_NAME = `fuzzy search reset-test ${RUN_ID}`;
 
 let fixtureNumber = 0;
 
-/** Create a throwaway fuzzy idea this run asserts on. Returns its idea number. */
-async function createFixture(name: string = FIXTURE_NAME): Promise<number> {
+/** Create a throwaway idea this run asserts on. Returns its idea number. */
+async function createFixture(name: string = FIXTURE_NAME, product: string = PRODUCT): Promise<number> {
   const text = await callTool('create_idea', {
-    productCode: PRODUCT,
+    productCode: product,
     name,
     hypothesis: `Throwaway fixture for demo-reset-studio integration run ${RUN_ID}. Safe to delete.`,
     validationStatus: 'Building'
@@ -39,11 +47,11 @@ async function createFixture(name: string = FIXTURE_NAME): Promise<number> {
  * already-archived record, which matters because the `--apply` test deletes the shared fixture
  * before `afterAll` gets to it.
  */
-async function destroyFixture(n: number): Promise<void> {
+async function destroyFixture(n: number, product: string = PRODUCT): Promise<void> {
   if (!n) return;
   try {
     await callTool('update_idea', {
-      productCode: PRODUCT,
+      productCode: product,
       ideaNumber: n,
       name: `Archived test fixture ${n}`,
       hypothesis: 'Archived demo artefact. Content cleared so it cannot surface in demo search results.',
@@ -53,7 +61,7 @@ async function destroyFixture(n: number): Promise<void> {
     /* scrub is best-effort — still attempt the delete below */
   }
   try {
-    await callTool('delete_idea', { productCode: PRODUCT, ideaNumber: n });
+    await callTool('delete_idea', { productCode: product, ideaNumber: n });
   } catch {
     /* already deleted */
   }
@@ -149,4 +157,61 @@ describe.skipIf(!hasCredentials())('demo-reset-studio (real studio-ai MCP over H
     expect(own).not.toMatch(/fuzzy|typo|levenshtein/i);
     expect(own).toMatch(/^#\d+: .* \(Archived,/m);
   }, 30_000);
+});
+
+// The checkout run's name is matched EXACTLY, never by keyword: the template (platform idea #2)
+// shares every word of it but the suffix, and a keyword match is how a teammate's real backlog was
+// once deleted. Pure string matching, no I/O — so these are plain unit tests.
+describe('checkout run matching', () => {
+  it('matches a run copy by its exact name', () => {
+    expect(CHECKOUT_RUN_NAME.test('Cart → checkout → order confirmation — demo run 2026-10-20')).toBe(true);
+  });
+
+  it('never matches the template, a run name without a date, or a keyword lookalike', () => {
+    for (const name of [
+      'Cart → checkout → order confirmation',
+      'Cart → checkout → order confirmation — demo run',
+      'Cart → checkout → order confirmation — demo run tomorrow',
+      'Make demo:reset restore stock and clear demo carts and orders',
+      'Checkout demo run tidy-up'
+    ]) {
+      expect(CHECKOUT_RUN_NAME.test(name), name).toBe(false);
+    }
+  });
+
+  it('reads the linked idea number off a task line', () => {
+    const line = '  #1201: Cart port (cookie cart) [managedOpus] [owner: C S] (Idea #1199: Cart → checkout → order confirmation — demo run 2026-10-20)';
+    expect(parseItemLine(line, 'Task')).toEqual({ number: 1201, name: 'Cart port (cookie cart)', status: '', idea: 1199 });
+  });
+});
+
+describe.skipIf(!hasCredentials())('checkout run discovery (real studio-ai MCP over HTTP)', () => {
+  const CHECKOUT_PRODUCT = 'platform';
+  const runName = `Cart → checkout → order confirmation — demo run 2099-01-01 reset-test ${RUN_ID}`;
+  let runIdea = 0;
+
+  beforeAll(async () => {
+    runIdea = await createFixture(runName, CHECKOUT_PRODUCT);
+  });
+
+  afterAll(async () => {
+    await destroyFixture(runIdea, CHECKOUT_PRODUCT);
+  });
+
+  it('finds the run idea and nothing that is not a run', async () => {
+    const found = await discoverCheckoutRun(CHECKOUT_PRODUCT);
+    expect(found.ideas.map((i) => i.number)).toContain(runIdea);
+    for (const idea of found.ideas) expect(CHECKOUT_RUN_NAME.test(idea.name), idea.name).toBe(true);
+    const runIdeas = found.ideas.map((i) => i.number);
+    for (const task of found.tasks) expect(runIdeas).toContain(task.idea);
+  });
+
+  it('dry-run reports the run idea but leaves it in place', async () => {
+    const result = await resetStudio({ product: CHECKOUT_PRODUCT, checkout: true, only: { ideas: [runIdea] } });
+    expect(result.applied).toBe(false);
+    expect(result.ideas.map((i) => i.number)).toEqual([runIdea]);
+
+    const found = await discoverCheckoutRun(CHECKOUT_PRODUCT);
+    expect(found.ideas.map((i) => i.number)).toContain(runIdea);
+  }, 20_000);
 });
