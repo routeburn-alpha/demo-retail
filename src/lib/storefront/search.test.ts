@@ -18,15 +18,42 @@ describe('exact search', () => {
     ).toBe(true);
   });
 
-  it('does not tolerate typos (fuzzy matching removed)', () => {
-    // "jaket" is a one-character typo of "jacket"; exact matching surfaces nothing.
-    expect(search('jaket', realCatalog)).toEqual([]);
+  it('does not expand synonyms', () => {
+    // "ladies" is a genuine synonym for "women's", not a typo of it (Levenshtein distance is
+    // far above any fuzzy threshold) — bounded edit-distance matching must not surface it.
+    expect(search('ladies', realCatalog)).toEqual([]);
+  });
+});
+
+describe('fuzzy token matching', () => {
+  it('matches a shell jacket when every token is typo\'d ("shel jaket")', () => {
+    const results = search('shel jaket', realCatalog);
+    expect(results.length).toBeGreaterThan(0);
+    expect(
+      results.every((p) => `${p.name} ${p.category}`.toLowerCase().includes('shell jacket'))
+    ).toBe(true);
   });
 
-  it('does not expand synonyms (synonym matching removed)', () => {
-    // "womens" (no apostrophe) is not a literal token in any name/category — only the
-    // removed synonym layer used to surface the women's line for it.
-    expect(search('womens', realCatalog)).toEqual([]);
+  it('tolerates a one-character typo ("jaket" for "jacket")', () => {
+    const results = search('jaket', realCatalog);
+    expect(results.length).toBeGreaterThan(0);
+    expect(
+      results.every((p) => `${p.name} ${p.category}`.toLowerCase().includes('jacket'))
+    ).toBe(true);
+  });
+
+  it('does not fuzzy-match a short unrelated token', () => {
+    // "jak" is 3 characters — below the length that gets any fuzzy tolerance — and is not a
+    // substring of "jacket" ("jacket" has no "k" right after "ja"), so it must match nothing.
+    expect(search('jak', realCatalog)).toEqual([]);
+  });
+
+  it('incidentally surfaces the women\'s line for "womens" — one edit from "women\'s", not a synonym', () => {
+    // This is fuzzy matching, not the removed synonym layer: "womens" is a single deletion
+    // (the apostrophe) away from "women's", so it falls inside the fuzzy threshold for its length.
+    const results = search('womens', realCatalog);
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.every(isWomens)).toBe(true);
   });
 });
 
