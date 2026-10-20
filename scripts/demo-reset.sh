@@ -1,30 +1,37 @@
 #!/usr/bin/env bash
 #
-# demo-reset.sh — return the repo to the "before" state of the fuzzy-search demo.
+# demo-reset.sh — return the repo to the "before" state of a demo.
 #
-# The demo beat: type a typo ("jckt" / "jaket") into storefront search, get zero
-# results, watch the agent build typo tolerance, watch it work. To replay that
-# beat the repo must be back in the state where search is EXACT-MATCH ONLY.
+# Two demos, each pinned to its own baseline tag:
+#   fuzzy search (default)  — type a typo ("jckt" / "jaket") into storefront search, get zero
+#                             results, watch the agent build typo tolerance. "Before" means search
+#                             is EXACT-MATCH ONLY: tag demo-baseline/search-exact.
+#   cart → checkout         — (--checkout, docs/DEMO-CHECKOUT.md) the storefront has no way to buy
+#                             anything. "Before" means src/ has no cart/checkout/orders code:
+#                             tag demo-baseline/checkout.
 #
 # This is deliberately repeatable — the feature is meant to be built and reset
 # over and over, so "reset" must not depend on nobody having shipped it.
 #
-# Four kinds of state are in play. This script handles three and reports the fourth:
-#   1. Code     — current branch pinned to origin/main, then the search matcher
-#                 forced back to the fuzzy-free baseline tag, and any file the
-#                 baseline does not have removed from the matcher directory.
-#                 Self-healing: if fuzzy matching ever lands on main — inline or
-#                 as a new module — this still restores "before".
+# Four kinds of state are in play:
+#   1. Code     — current branch pinned to origin/main, then the demo's files forced
+#                 back to the baseline tag, and any file the baseline does not have
+#                 removed. Self-healing: if the feature ever lands on main — inline
+#                 or as a new module — this still restores "before".
 #   2. Branches — optionally delete a throwaway demo branch (local + remote),
 #                 which drops its Vercel preview.
-#   3. DB       — optionally reseed (--seed) so the low-stock badge renders.
-#   4. Studio   — cannot be reset from a shell (it lives behind MCP); printed
-#                 as an explicit checklist instead of silently ignored.
+#   3. DB       — optionally reseed a LOCAL database (--seed) so the low-stock badge
+#                 renders, or undo one checkout run (--db-since) on any database.
+#   4. Studio   — reset through demo-reset-studio.ts (MCP); prints a manual
+#                 checklist when Studio can't be reached.
 #
 # Usage:
 #   scripts/demo-reset.sh                       # per-run reset (code + verify)
 #   scripts/demo-reset.sh <branch>              # also delete that demo branch + its preview
-#   scripts/demo-reset.sh --seed [<branch>]     # pre-flight: also reseed DB + low-stock
+#   scripts/demo-reset.sh --checkout            # reset the cart → checkout demo instead
+#   scripts/demo-reset.sh --checkout --db-since <RUN_START>
+#                                               # also undo that run's stock, orders and carts
+#   scripts/demo-reset.sh --seed [<branch>]     # pre-flight: also reseed DB + low-stock (local DB only)
 #   scripts/demo-reset.sh --check               # verify only, change nothing (exit 1 if not baseline)
 #   scripts/demo-reset.sh --force               # proceed even if unrelated files are dirty
 #   scripts/demo-reset.sh --no-verify           # skip the test-based verification (faster)
@@ -47,6 +54,13 @@ fi
 
 BASELINE_BRANCH="origin/main"
 BASELINE_TAG="demo-baseline/search-exact"
+CHECKOUT_TAG="demo-baseline/checkout"
+
+# Checkout touches files all over src/ — new routes, a Mailer port, the header's cart count, the
+# product page's add-to-cart — so it is restored by diffing ALL of src/ against its tag rather than
+# by a list of paths. The cost: real work that lands on main after the tag is reverted too, so the
+# tag must be re-pointed when it does (docs/DEMO-CHECKOUT.md, pre-flight).
+CHECKOUT_DIR=src
 
 # The demo's blast radius: the only files whose "before" state the demo depends on.
 SEARCH_FILES=(
@@ -65,24 +79,62 @@ DO_SEED=0
 DO_CHECK=0
 DO_VERIFY=1
 DO_STUDIO=1
+DO_CHECKOUT=0
+DB_SINCE=""
 FORCE=0
 DEMO_BRANCH=""
 
-for arg in "$@"; do
-  case "$arg" in
+while [ $# -gt 0 ]; do
+  case "$1" in
     --seed)      DO_SEED=1 ;;
     --check)     DO_CHECK=1 ;;
+    --checkout)  DO_CHECKOUT=1 ;;
+    --db-since)  DB_SINCE="${2:?--db-since needs the run start time, e.g. 2026-10-20T09:00:00Z}"; shift ;;
     --no-verify) DO_VERIFY=0 ;;
     --no-studio) DO_STUDIO=0 ;;
     --force)     FORCE=1 ;;
-    -h|--help)   sed -n '2,26p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
-    --*)         echo "Unknown flag: $arg" >&2; exit 2 ;;
-    *)           DEMO_BRANCH="$arg" ;;
+    -h|--help)   sed -n '2,38p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --*)         echo "Unknown flag: $1" >&2; exit 2 ;;
+    *)           DEMO_BRANCH="$1" ;;
   esac
+  shift
 done
+
+if [ -n "$DB_SINCE" ] && [ "$DO_CHECKOUT" -eq 0 ]; then
+  echo "✗ --db-since undoes a checkout run; use it with --checkout" >&2
+  exit 2
+fi
+
+if [ "$DO_CHECKOUT" -eq 1 ]; then
+  BASELINE_TAG="$CHECKOUT_TAG"
+  DEMO_NAME="checkout demo"
+  DEMO_PATHS=("$CHECKOUT_DIR")
+else
+  DEMO_NAME="fuzzy-search demo"
+  DEMO_PATHS=("${SEARCH_FILES[@]}")
+fi
 
 cd "$(git rev-parse --show-toplevel)"
 CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+
+# The DATABASE_URL db:seed will actually use: the environment first, then .env.local, then .env —
+# the same precedence as the dotenv calls in scripts/seed.ts.
+database_url() {
+  if [ -n "${DATABASE_URL:-}" ]; then
+    echo "$DATABASE_URL"
+    return
+  fi
+  local f line
+  for f in .env.local .env; do
+    line="$(grep -m1 '^DATABASE_URL=' "$f" 2>/dev/null || true)"
+    if [ -n "$line" ]; then
+      line="${line#DATABASE_URL=}"
+      line="${line%\"}"; line="${line#\"}"
+      echo "$line"
+      return
+    fi
+  done
+}
 
 # ---------------------------------------------------------------------------
 # verify_baseline — is the working tree actually in the "before" state?
@@ -118,64 +170,93 @@ verify_baseline() {
       echo "✗ working tree is not clean — residue from a previous run:" >&2
       echo "$dirty" | sed 's/^/    /' >&2
       echo "  Dead code left behind still collapses the demo, even though nothing leaks." >&2
-      echo "  Run: scripts/demo-reset.sh" >&2
+      echo "  Run: scripts/demo-reset.sh$([ "$DO_CHECKOUT" -eq 1 ] && echo ' --checkout')" >&2
       failed=1
     else
       echo "✓ working tree clean (no residue from a previous run)"
     fi
-  fi
 
-  # 1. Strongest check: the demo's files must match the pinned baseline byte for byte.
-  #    This is what catches a shipped feature — fuzzy matching arrives WITH its own
-  #    passing tests, so "the suite is green" proves nothing on its own.
-  if git rev-parse --verify --quiet "refs/tags/$BASELINE_TAG" >/dev/null; then
-    if git diff --quiet "$BASELINE_TAG" -- "${SEARCH_FILES[@]}"; then
-      echo "✓ search files match baseline $BASELINE_TAG"
-    else
-      echo "✗ search files differ from baseline $BASELINE_TAG:" >&2
-      git diff --stat "$BASELINE_TAG" -- "${SEARCH_FILES[@]}" | sed 's/^/    /' >&2
+    # 0b. Tag drift. --check never fetches, so a baseline tag re-pointed on origin leaves this clone
+    #     comparing against the OLD commit and calling it Ready. Read-only: ls-remote, no fetch.
+    #     Offline is not a failure — the comparison is simply skipped.
+    local remote_tag local_tag
+    # Annotated tags list twice (tag object, then the peeled ^{} commit); the commit sorts last.
+    remote_tag="$(git ls-remote --tags origin "$BASELINE_TAG" 2>/dev/null | sort -k2 | tail -1 | cut -f1 || true)"
+    local_tag="$(git rev-parse --verify --quiet "$BASELINE_TAG^{commit}" || true)"
+    if [ -n "$remote_tag" ] && [ "$remote_tag" != "$local_tag" ]; then
+      echo "✗ local $BASELINE_TAG is stale — the tag moved on origin" >&2
+      echo "  Run: git fetch origin --tags --force" >&2
       failed=1
     fi
   fi
 
-  # 1b. Check (1) can only see files it already names. A capability can also arrive as a NEW
-  #     file, which no list entry covers — so ask git which paths exist here but not in the tag.
-  #     Added paths only, deliberately: a full directory diff would also fire on unrelated
-  #     modules and the reset would revert work that has nothing to do with the demo.
-  if git rev-parse --verify --quiet "refs/tags/$BASELINE_TAG" >/dev/null; then
-    local added
-    added="$(git diff --diff-filter=A --name-only "$BASELINE_TAG" -- "$SEARCH_DIR")"
-    if [ -n "$added" ]; then
-      echo "✗ files added to $SEARCH_DIR since $BASELINE_TAG:" >&2
-      echo "$added" | sed 's/^/    /' >&2
+  # 1c. Checkout: the whole of src/ must match its baseline — added, edited and deleted paths alike.
+  if [ "$DO_CHECKOUT" -eq 1 ]; then
+    local changed
+    changed="$(git diff --name-only "$BASELINE_TAG" -- "$CHECKOUT_DIR" 2>/dev/null || echo "(tag $BASELINE_TAG missing)")"
+    if [ -n "$changed" ]; then
+      echo "✗ $CHECKOUT_DIR differs from $BASELINE_TAG — checkout residue:" >&2
+      echo "$changed" | sed 's/^/    /' >&2
       failed=1
     else
-      echo "✓ no files added to $SEARCH_DIR since $BASELINE_TAG"
+      echo "✓ $CHECKOUT_DIR matches $BASELINE_TAG (no cart/checkout/orders code)"
     fi
   fi
 
-  # 2. Defence in depth, and the only check available if the tag is missing: no edit-distance
-  #    machinery anywhere under the matcher directory. Scoped to search.ts alone this missed
-  #    fuzzy.ts entirely, and it is also the only check that sees an UNTRACKED file, which git
-  #    diff cannot.
-  if grep -rnE 'levenshtein|tokenMatches|MAX_EDIT_DIST|editDistance' "$SEARCH_DIR" >/dev/null 2>&1; then
-    echo "✗ fuzzy matching still present under $SEARCH_DIR:" >&2
-    grep -rlE 'levenshtein|tokenMatches|MAX_EDIT_DIST|editDistance' "$SEARCH_DIR" | sed 's/^/    /' >&2
-    failed=1
-  else
-    echo "✓ $SEARCH_DIR is exact-match only"
-  fi
+  # 1–3 are the fuzzy-search demo's own checks.
+  if [ "$DO_CHECKOUT" -eq 0 ]; then
+    # 1. Strongest check: the demo's files must match the pinned baseline byte for byte.
+    #    This is what catches a shipped feature — fuzzy matching arrives WITH its own
+    #    passing tests, so "the suite is green" proves nothing on its own.
+    if git rev-parse --verify --quiet "refs/tags/$BASELINE_TAG" >/dev/null; then
+      if git diff --quiet "$BASELINE_TAG" -- "${SEARCH_FILES[@]}"; then
+        echo "✓ search files match baseline $BASELINE_TAG"
+      else
+        echo "✗ search files differ from baseline $BASELINE_TAG:" >&2
+        git diff --stat "$BASELINE_TAG" -- "${SEARCH_FILES[@]}" | sed 's/^/    /' >&2
+        failed=1
+      fi
+    fi
 
-  # 3. Behaviour: the baseline suite asserts search('jaket') returns []. Green here
-  #    means typo tolerance is genuinely absent — but only meaningful alongside (1),
-  #    since a shipped feature would replace these tests with ones that expect fuzzy.
-  if [ "$DO_VERIFY" -eq 1 ]; then
-    if npm run --silent test:baseline >/tmp/demo-reset-verify.log 2>&1; then
-      echo "✓ search unit tests green"
-    else
-      echo "✗ search tests failed — repo is NOT at the demo baseline" >&2
-      tail -25 /tmp/demo-reset-verify.log >&2
+    # 1b. Check (1) can only see files it already names. A capability can also arrive as a NEW
+    #     file, which no list entry covers — so ask git which paths exist here but not in the tag.
+    #     Added paths only, deliberately: a full directory diff would also fire on unrelated
+    #     modules and the reset would revert work that has nothing to do with the demo.
+    if git rev-parse --verify --quiet "refs/tags/$BASELINE_TAG" >/dev/null; then
+      local added
+      added="$(git diff --diff-filter=A --name-only "$BASELINE_TAG" -- "$SEARCH_DIR")"
+      if [ -n "$added" ]; then
+        echo "✗ files added to $SEARCH_DIR since $BASELINE_TAG:" >&2
+        echo "$added" | sed 's/^/    /' >&2
+        failed=1
+      else
+        echo "✓ no files added to $SEARCH_DIR since $BASELINE_TAG"
+      fi
+    fi
+
+    # 2. Defence in depth, and the only check available if the tag is missing: no edit-distance
+    #    machinery anywhere under the matcher directory. Scoped to search.ts alone this missed
+    #    fuzzy.ts entirely, and it is also the only check that sees an UNTRACKED file, which git
+    #    diff cannot.
+    if grep -rnE 'levenshtein|tokenMatches|MAX_EDIT_DIST|editDistance' "$SEARCH_DIR" >/dev/null 2>&1; then
+      echo "✗ fuzzy matching still present under $SEARCH_DIR:" >&2
+      grep -rlE 'levenshtein|tokenMatches|MAX_EDIT_DIST|editDistance' "$SEARCH_DIR" | sed 's/^/    /' >&2
       failed=1
+    else
+      echo "✓ $SEARCH_DIR is exact-match only"
+    fi
+
+    # 3. Behaviour: the baseline suite asserts search('jaket') returns []. Green here
+    #    means typo tolerance is genuinely absent — but only meaningful alongside (1),
+    #    since a shipped feature would replace these tests with ones that expect fuzzy.
+    if [ "$DO_VERIFY" -eq 1 ]; then
+      if npm run --silent test:baseline >/tmp/demo-reset-verify.log 2>&1; then
+        echo "✓ search unit tests green"
+      else
+        echo "✗ search tests failed — repo is NOT at the demo baseline" >&2
+        tail -25 /tmp/demo-reset-verify.log >&2
+        failed=1
+      fi
     fi
   fi
 
@@ -211,36 +292,44 @@ verify_baseline() {
 if [ "$DO_CHECK" -eq 1 ]; then
   echo "▸ Checking demo baseline (read-only)…"
   if verify_baseline; then
-    echo "✓ Repo is at the fuzzy-search demo baseline. Ready to run the demo."
+    if [ "$DO_CHECKOUT" -eq 1 ]; then
+      echo "✓ Repo is at the checkout demo baseline. Ready to run the checkout demo."
+    else
+      echo "✓ Repo is at the fuzzy-search demo baseline. Ready to run the demo."
+    fi
     exit 0
   fi
-  echo "✗ Repo is NOT at the baseline. Run: scripts/demo-reset.sh" >&2
+  echo "✗ Repo is NOT at the baseline. Run: scripts/demo-reset.sh$([ "$DO_CHECKOUT" -eq 1 ] && echo ' --checkout')" >&2
   exit 1
 fi
 
+# --force on tags: a baseline tag re-pointed on origin otherwise makes this fetch fail with "would
+# clobber existing tag", and under set -e + --quiet the script exits right here, silently, with
+# nothing reset. origin is the source of truth for the baselines.
 echo "▸ Fetching origin…"
-git fetch --quiet --tags origin
+git fetch --quiet --tags --force origin
 
 # ---------------------------------------------------------------------------
-# 1. Code: pin the branch to baseline, then force the search files fuzzy-free.
+# 1. Code: pin the branch to baseline, then force the demo's files back to the baseline tag.
 # ---------------------------------------------------------------------------
 
-# Guard real work. Dirty search files are expected (that IS the demo output); dirty
+# Guard real work. Dirty demo files are expected (that IS the demo output); dirty
 # anything-else is probably work someone cares about, so stop unless --force.
 #
 # Untracked files are checked too, not just tracked ones: `git diff` cannot see them,
 # but the `git clean -fd` below deletes them — so a tracked-only guard would let this
 # script silently destroy brand-new work it never warned about.
-EXCLUDE_SEARCH=(':(exclude)src/lib/storefront/search.ts' ':(exclude)src/lib/storefront/search.test.ts')
+EXCLUDE_DEMO=()
+for path in "${DEMO_PATHS[@]}"; do EXCLUDE_DEMO+=(":(exclude)$path"); done
 UNRELATED="$(
   {
-    git diff --name-only HEAD -- . "${EXCLUDE_SEARCH[@]}"
-    git ls-files --others --exclude-standard -- . "${EXCLUDE_SEARCH[@]}"
+    git diff --name-only HEAD -- . "${EXCLUDE_DEMO[@]}"
+    git ls-files --others --exclude-standard -- . "${EXCLUDE_DEMO[@]}"
   } | sort -u
 )"
 if [ -n "$UNRELATED" ]; then
   if [ "$FORCE" -eq 0 ]; then
-    echo "✗ Uncommitted or untracked changes outside the demo's search files:" >&2
+    echo "✗ Uncommitted or untracked changes outside the $DEMO_NAME's files:" >&2
     echo "$UNRELATED" | sed 's/^/    /' >&2
     echo "  These would be destroyed by 'git reset --hard' + 'git clean -fd'." >&2
     echo "  Commit/stash them, or re-run with --force to discard them." >&2
@@ -255,24 +344,30 @@ git reset --hard "$BASELINE_BRANCH" --quiet
 git clean -fd --quiet
 echo "✓ $CURRENT_BRANCH reset to $BASELINE_BRANCH ($(git rev-parse --short HEAD))"
 
-# Force the search matcher to the pinned fuzzy-free baseline. In the healthy case
-# main is already fuzzy-free and this is a no-op. If someone merged the feature to
-# main, this is what still gets you a replayable demo.
+# Force the demo's files to the pinned baseline. In the healthy case main is already at
+# baseline and this is a no-op. If someone merged the feature to main, this is what still
+# gets you a replayable demo.
 if git rev-parse --verify --quiet "refs/tags/$BASELINE_TAG" >/dev/null; then
-  git checkout "$BASELINE_TAG" -- "${SEARCH_FILES[@]}"
-  if git diff --cached --quiet -- "${SEARCH_FILES[@]}"; then
-    echo "✓ search matcher already fuzzy-free on $BASELINE_BRANCH"
+  # `git checkout <tag> -- <dir>` copies files OUT of the tag; it never deletes one the tag does
+  # not have. A capability that landed as a new file would survive it, which is exactly how
+  # fuzzy.ts stayed on disk through a reset that reported success (#1128) — so added files are
+  # found first, from the diff, and removed after the restore.
+  ADDED_DIR="$SEARCH_DIR"
+  [ "$DO_CHECKOUT" -eq 1 ] && ADDED_DIR="$CHECKOUT_DIR"
+  ADDED_FILES="$(git diff --diff-filter=A --name-only "$BASELINE_TAG" -- "$ADDED_DIR")"
+
+  git checkout "$BASELINE_TAG" -- "${DEMO_PATHS[@]}"
+  if git diff --cached --quiet -- "${DEMO_PATHS[@]}"; then
+    echo "✓ $DEMO_NAME files already at $BASELINE_TAG on $BASELINE_BRANCH"
   else
-    git reset --quiet -- "${SEARCH_FILES[@]}"
-    echo "⚠ $BASELINE_BRANCH CONTAINS FUZZY MATCHING — restored search files from $BASELINE_TAG."
+    RESTORED="$(git diff --cached --name-only -- "${DEMO_PATHS[@]}")"
+    git reset --quiet -- "${DEMO_PATHS[@]}"
+    echo "⚠ $BASELINE_BRANCH CONTAINS $DEMO_NAME CODE — restored from $BASELINE_TAG:"
+    echo "$RESTORED" | sed 's/^/    /'
     echo "  The working tree is now correct for the demo, but it is dirty."
-    echo "  Fix the root cause by reverting the fuzzy commit on main."
+    echo "  Fix the root cause by reverting the feature's commits on main."
   fi
 
-  # `git checkout <tag> -- <dir>` copies files OUT of the tag; it never deletes one the tag does
-  # not have. A capability that landed as a new file therefore survives the restore above, which
-  # is exactly how fuzzy.ts stayed on disk through a reset that reported success (#1128).
-  ADDED_FILES="$(git diff --diff-filter=A --name-only "$BASELINE_TAG" -- "$SEARCH_DIR")"
   if [ -n "$ADDED_FILES" ]; then
     echo "$ADDED_FILES" | while IFS= read -r f; do
       [ -n "$f" ] && git rm --quiet --force -- "$f"
@@ -284,7 +379,7 @@ if git rev-parse --verify --quiet "refs/tags/$BASELINE_TAG" >/dev/null; then
   fi
 else
   echo "⚠ Baseline tag '$BASELINE_TAG' not found — relying on $BASELINE_BRANCH alone."
-  echo "  Create it with: git tag $BASELINE_TAG <fuzzy-free-commit> && git push origin $BASELINE_TAG"
+  echo "  Create it with: git tag $BASELINE_TAG <baseline-commit> && git push origin $BASELINE_TAG"
 fi
 
 # ---------------------------------------------------------------------------
@@ -303,13 +398,34 @@ if [ -n "$DEMO_BRANCH" ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# 3. DB (pre-flight only): reseed and force a low-stock spread so the badge renders.
+# 3. DB.
+#
+# --seed (pre-flight): reseed and force a low-stock spread so the badge renders. LOCAL ONLY —
+# db:seed rewrites every product, and DATABASE_URL is usually the shared Neon database that
+# other people and agents depend on.
+#
+# --db-since (checkout): undo exactly one run — restock what its orders consumed, then delete
+# its orders and carts — in one transaction. Safe on the shared database; never seeds or pushes.
 # ---------------------------------------------------------------------------
 if [ "$DO_SEED" -eq 1 ]; then
+  case "$(database_url)" in
+    *@localhost[:/]*|*@127.0.0.1[:/]*) ;;
+    *)
+      echo "✗ Refusing to reseed: DATABASE_URL is not a local database." >&2
+      echo "  db:seed would rewrite shared state other people and agents depend on." >&2
+      [ "$DO_CHECKOUT" -eq 1 ] && echo "  To undo a checkout run, use --db-since <RUN_START> instead." >&2
+      exit 1
+      ;;
+  esac
   echo "▸ Reseeding catalogue…"
   npm run --silent db:seed
   echo "▸ Applying low-stock demo state…"
   npm run --silent db:seed:lowstock
+fi
+
+if [ -n "$DB_SINCE" ]; then
+  echo "▸ Undoing the checkout run's database changes since ${DB_SINCE}…"
+  npm run --silent demo:reset:db -- --since "$DB_SINCE"
 fi
 
 # ---------------------------------------------------------------------------
@@ -331,15 +447,29 @@ fi
 # ---------------------------------------------------------------------------
 if [ "$DO_STUDIO" -eq 1 ]; then
   echo "▸ Resetting Studio state…"
-  npx tsx scripts/demo-reset-studio.ts --apply || true
+  if [ "$DO_CHECKOUT" -eq 1 ]; then
+    npx tsx scripts/demo-reset-studio.ts --checkout --apply || true
+  else
+    npx tsx scripts/demo-reset-studio.ts --apply || true
+  fi
 else
   echo "▸ Skipping Studio reset (--no-studio)"
 fi
 
-cat <<'EOF'
+if [ "$DO_CHECKOUT" -eq 1 ]; then
+  cat <<'EOF'
+
+✓ Reset complete. src/ has no cart, checkout or orders code.
+
+Remaining manual check:
+  • Confirm the praxaai Vercel production storefront (main) has no Add to cart button.
+EOF
+else
+  cat <<'EOF'
 
 ✓ Reset complete. Search is exact-match only — "jckt" and "jaket" return nothing.
 
 Remaining manual check:
   • Confirm the praxaai Vercel production storefront (main) is unchanged.
 EOF
+fi

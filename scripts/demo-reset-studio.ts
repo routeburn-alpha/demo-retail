@@ -1,4 +1,4 @@
-// demo-reset-studio — the Studio half of the fuzzy-search demo reset.
+// demo-reset-studio — the Studio half of the demo resets.
 //
 // scripts/demo-reset.sh restores the CODE to the `demo-baseline/search-exact` tag, but the
 // Studio task store lives behind the studio-ai MCP server and is unreachable from a shell.
@@ -12,9 +12,14 @@
 // It also sidesteps the transition rules — `shipped -> backlog` is rejected by the backend,
 // but a shipped task can still be deleted.
 //
+// With --checkout it resets the cart → checkout demo (docs/DEMO-CHECKOUT.md) instead: the run
+// copy idea and its tasks, matched by the run copy's EXACT name. Never by keyword — the template
+// (platform idea #2) shares every word of it but the suffix.
+//
 // CLI:
 //   tsx scripts/demo-reset-studio.ts              → dry-run: print what would be deleted
 //   tsx scripts/demo-reset-studio.ts --apply      → perform the soft-deletes
+//   tsx scripts/demo-reset-studio.ts --checkout   → the checkout demo (default product: platform)
 //   tsx scripts/demo-reset-studio.ts --product X  → scope to a product (default: search)
 
 import { callTool, hasCredentials } from './studio-poll';
@@ -44,6 +49,15 @@ const ALREADY_RESET = new Set(['archived']);
 
 const DEFAULT_PRODUCT = 'search';
 
+/**
+ * A checkout demo run copy, e.g. `Cart → checkout → order confirmation — demo run 2026-10-20`.
+ * The date is required, so the template's own name — and any keyword lookalike — can never match.
+ * An optional label may follow it (a second rehearsal the same day).
+ */
+export const CHECKOUT_RUN_NAME = /^Cart → checkout → order confirmation — demo run \d{4}-\d{2}-\d{2}( .+)?$/;
+
+const CHECKOUT_PRODUCT = 'platform';
+
 /** Overwritten into an artefact's text before it is deleted. See `scrubIdea()`. */
 const SCRUBBED =
   'Archived demo artefact. Content cleared so it cannot surface in demo search results.';
@@ -55,6 +69,8 @@ export interface StudioItem {
   number: number;
   name: string;
   status: string;
+  /** A task's linked idea, when the listing names one. */
+  idea?: number;
 }
 
 export interface ResetFailure {
@@ -77,6 +93,8 @@ export interface ResetOptions {
   /** Restrict to specific numbers. When set, anything not listed is left alone — this is how
    *  the integration tests mutate only their own fixture and never real studio state. */
   only?: { ideas?: number[]; tasks?: number[] };
+  /** Reset the cart → checkout demo instead of the fuzzy-search one. */
+  checkout?: boolean;
 }
 
 const ITEM_LINE = /^\s*#(\d+):\s*(.*)$/;
@@ -99,11 +117,15 @@ export function parseItemLine(line: string, kind: 'Idea' | 'Task'): StudioItem |
   if (!m) return null;
 
   // A task's trailing `(Idea #N: …)` annotation, then any number of `[agent]` / `[owner: …]`.
-  let rest = m[2].replace(/\s*\(Idea #\d+:[^)]*\)\s*$/, '');
+  const IDEA_ANNOTATION = /\s*\(Idea #(\d+):[^)]*\)\s*$/;
+  const idea = m[2].match(IDEA_ANNOTATION)?.[1];
+  let rest = m[2].replace(IDEA_ANNOTATION, '');
   const TRAILING_BRACKET = /\s*\[[^\]]*\]\s*$/;
   while (TRAILING_BRACKET.test(rest)) rest = rest.replace(TRAILING_BRACKET, '');
 
-  if (kind === 'Task') return { number: Number(m[1]), name: rest.trim(), status: '' };
+  if (kind === 'Task') {
+    return { number: Number(m[1]), name: rest.trim(), status: '', ...(idea && { idea: Number(idea) }) };
+  }
 
   const withStatus = rest.match(/^(.*)\s\(([^()]+)\)\s*$/);
   if (!withStatus) return null;
@@ -164,6 +186,28 @@ export async function discoverResettable(
 
       out.push(item);
     }
+  }
+
+  return { ideas, tasks };
+}
+
+/** Live checkout run-copy ideas, and the tasks linked to them. The template is never among them. */
+export async function discoverCheckoutRun(
+  product: string = CHECKOUT_PRODUCT
+): Promise<{ ideas: StudioItem[]; tasks: StudioItem[] }> {
+  const ideas: StudioItem[] = [];
+  for (const line of await listAll('get_ideas', product)) {
+    const item = parseItemLine(line, 'Idea');
+    if (item && CHECKOUT_RUN_NAME.test(item.name) && !ALREADY_RESET.has(item.status.toLowerCase())) {
+      ideas.push(item);
+    }
+  }
+
+  const runIdeas = new Set(ideas.map((i) => i.number));
+  const tasks: StudioItem[] = [];
+  for (const line of await listAll('get_tasks', product)) {
+    const item = parseItemLine(line, 'Task');
+    if (item?.idea !== undefined && runIdeas.has(item.idea)) tasks.push(item);
   }
 
   return { ideas, tasks };
@@ -292,13 +336,19 @@ interface KnowledgePage {
 
 /** Discover, then (with `apply`) soft-delete. Idempotent: a second run finds nothing. */
 export async function resetStudio(opts: ResetOptions = {}): Promise<ResetResult> {
-  const product = opts.product ?? DEFAULT_PRODUCT;
+  const product = opts.product ?? (opts.checkout ? CHECKOUT_PRODUCT : DEFAULT_PRODUCT);
   const apply = opts.apply ?? false;
 
-  const live = await discoverResettable(product);
-  const archived = await discoverArchived(product, opts.only);
-  let ideas = [...live.ideas, ...archived.ideas];
-  let tasks = [...live.tasks, ...archived.tasks];
+  let ideas: StudioItem[];
+  let tasks: StudioItem[];
+  if (opts.checkout) {
+    ({ ideas, tasks } = await discoverCheckoutRun(product));
+  } else {
+    const live = await discoverResettable(product);
+    const archived = await discoverArchived(product, opts.only);
+    ideas = [...live.ideas, ...archived.ideas];
+    tasks = [...live.tasks, ...archived.tasks];
+  }
 
   if (opts.only) {
     const onlyIdeas = opts.only.ideas ?? [];
@@ -345,34 +395,36 @@ export async function resetStudio(opts: ResetOptions = {}): Promise<ResetResult>
 }
 
 /** Printed when Studio can't be reached — the reset must never fail the whole demo. */
-const MANUAL_CHECKLIST = `  Studio not reset automatically. By hand:
-    • Delete the fuzzy-search idea and its tasks created by the last run.
+const manualChecklist = (demo: string) => `  Studio not reset automatically. By hand:
+    • Delete the ${demo} idea and its tasks created by the last run.
     • Confirm the praxaai Vercel production storefront (main) is unchanged.`;
 
 async function main(): Promise<void> {
   const argv = process.argv.slice(2);
   const apply = argv.includes('--apply');
+  const checkout = argv.includes('--checkout');
   const productFlag = argv.indexOf('--product');
-  const product = productFlag >= 0 ? argv[productFlag + 1] : DEFAULT_PRODUCT;
+  const product = productFlag >= 0 ? argv[productFlag + 1] : undefined;
+  const demo = checkout ? 'checkout demo run' : 'fuzzy-search demo';
 
   if (!hasCredentials()) {
     console.log('⚠ No STUDIO_AI_TOKEN — skipping the Studio reset.');
-    console.log(MANUAL_CHECKLIST);
+    console.log(manualChecklist(demo));
     return; // exit 0: a missing token must not fail the code reset
   }
 
   let result: ResetResult;
   try {
-    result = await resetStudio({ product, apply });
+    result = await resetStudio({ product, apply, checkout });
   } catch (e) {
     console.log(`⚠ Studio unreachable (${e instanceof Error ? e.message : String(e)}).`);
-    console.log(MANUAL_CHECKLIST);
+    console.log(manualChecklist(demo));
     return;
   }
 
   const total = result.ideas.length + result.tasks.length;
   if (total === 0) {
-    console.log('✓ Studio already clean — no fuzzy-search demo artifacts to remove.');
+    console.log(`✓ Studio already clean — no ${demo} artifacts to remove.`);
   } else {
     const verb = (item: StudioItem) =>
       item.status === 'archived'
@@ -382,7 +434,7 @@ async function main(): Promise<void> {
     for (const t of result.tasks) console.log(`  ${verb(t)} task #${t.number}: ${t.name}`);
     console.log(
       result.applied
-        ? `✓ Studio reset — removed ${total} fuzzy-search demo artifact(s).`
+        ? `✓ Studio reset — removed ${total} ${demo} artifact(s).`
         : `▸ Dry-run: ${total} artifact(s) would be removed. Re-run with --apply.`
     );
   }

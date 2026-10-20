@@ -22,7 +22,8 @@
     "db:seed:facets": "tsx scripts/seed-facets.ts",
     "db:seed:lowstock": "tsx scripts/demo-lowstock.ts",
     "demo:reset": "bash scripts/demo-reset.sh",
-    "demo:reset:studio": "tsx scripts/demo-reset-studio.ts"
+    "demo:reset:studio": "tsx scripts/demo-reset-studio.ts",
+    "demo:reset:db": "tsx scripts/demo-reset-db.ts"
   },
   "devDependencies": {
     "@sveltejs/adapter-vercel": "^5.5.0",

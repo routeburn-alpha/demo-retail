@@ -12,7 +12,7 @@ Live time: about **20 minutes**. The longest managed run (checkout) does not fit
 part of the demo is pre-baked (see [Pre-bake](#pre-bake-morning-of-the-demo)).
 
 > **Golden rule: idea #2 is the template. Never run the demo on it.** Every run works on a *copy*
-> named `Cart → checkout → order confirmation — demo run <date>`. Once a task ships, it can't be
+> named `Cart → checkout → order confirmation — demo run <YYYY-MM-DD>`. Once a task ships, it can't be
 > un-shipped, so the template must stay untouched. The exact-name suffix is also what makes reset
 > safe: reset matches that full name, never a keyword (see the "reset deletes real backlog" incident).
 
@@ -41,15 +41,16 @@ ahead of time and leave the second at the exact moment you want to show live.
 
 1. **Copy the template.** Ask Claude: *"stage a fresh checkout demo run from platform idea #2"*.
    That creates the run idea with the same hypothesis, design, attached ADR and 8 tasks with their
-   dependencies, and leaves it in **Backlog**. (Until the reset tooling below exists, this is a Claude
-   request, not a script.)
+   dependencies, and leaves it in **Backlog**. This is a Claude request, not a script. Keep the
+   exact name format: the reset matches on it.
 2. Move the run idea to **Building**.
 3. `execute_task` **#B Cart port**. Review its PR and **merge**. #C becomes ready.
 4. `execute_task` **#A Oversell analysis**. Let it finish and **leave it in Review**. Don't approve it:
    approving is a live beat.
 5. `execute_task` **#C Add-to-cart + /cart**. Leave the **PR open** with its Vercel preview up
    (`demo-retail-git-<branch>-praxaai.vercel.app`). Load it once to warm it (stale-first-load gotcha).
-6. Record the time you started (`RUN_START`). The DB reset needs it.
+6. Record the time you started as `RUN_START`, in ISO form (`date -u +%Y-%m-%dT%H:%M:%SZ`). The DB
+   reset needs it.
 
 Open and ready to alt-tab: the Studio idea page, the Studio task list, the #C preview URL, the #C PR
 on GitHub, and a terminal in the repo.
@@ -146,50 +147,55 @@ measuring cart → order conversion against the hypothesis.
 
 ## Reset (after every run)
 
-Four kinds of state change. **Only the branch layer has tooling today.** The rest is manual until
-the reset work below is built.
+One command, run from a clean checkout of `main` once the run's PRs are closed or reverted:
 
-| State | What the run changes | Reset | Tooling |
-|-------|----------------------|-------|---------|
-| **Studio** | Run idea + 8 tasks, shipped/review statuses, run history | Archive the run idea and its tasks by **exact run name**. Template #2 stays untouched. | Manual (ask Claude, or the Studio UI) |
-| **Code on `main`** | Merged PRs (#B, #C, and anything else merged) are **live on production** | Revert PR restoring `main` to the checkout baseline, through the precommit skill | Manual |
-| **Branches + previews** | Unmerged run branches and their Vercel previews | `npm run demo:reset <branch>` per branch | ✅ exists |
-| **Database** | Stock decremented; carts and orders created | Restore stock from the run's orders, then delete run carts and orders (below) | Manual |
+```bash
+npm run demo:reset -- --checkout --db-since <RUN_START> [<run-branch>]
+```
 
-### Database reset
+| State | What the run changes | What the reset does |
+|-------|----------------------|---------------------|
+| **Studio** | Run idea + 8 tasks, shipped/review statuses, run history | Archives (and blanks) every idea named exactly `Cart → checkout → order confirmation — demo run <YYYY-MM-DD>[ label]` in `platform`, plus the tasks linked to it. The template, idea #2, cannot match. |
+| **Code on `main`** | Merged PRs (#B, #C, …) are **live on production** | Restores all of `src/` to the `demo-baseline/checkout` tag in the working tree (added files removed, edited files restored) and **warns** if `main` itself still carries checkout code. Production only changes when you revert on `main` (Gotcha 1). |
+| **Branches + previews** | Unmerged run branches and their Vercel previews | Deletes `<run-branch>` locally and on origin, which drops its preview. Repeat per branch. |
+| **Database** | Stock decremented; carts and orders created | `--db-since` gives back the stock the run's orders consumed, then deletes orders (and order items) and carts (and cart items) created since `RUN_START`, in one transaction. Safe on the shared Neon database. |
+
+**Check before the next run:** `npm run demo:reset -- --checkout --check` changes nothing. It fails
+on residue anywhere in the working tree, on any `src/` file that differs from the tag, on a baseline
+tag that moved on origin, and on a failing or skipped security suite. It only says Ready when all
+of those pass.
+
+**Studio dry run first.** The reset runs the Studio step with `--apply`. To see what it would archive
+before running it, use `npm run demo:reset:studio -- --checkout`. Each piece also runs on its own:
+`npm run demo:reset:db -- --since <RUN_START>` for the database alone.
+
+### Pre-flight: keep the baseline tag current
+
+The code reset diffs **all of `src/`** against `demo-baseline/checkout`, so real work merged to
+`main` after the tag looks like checkout residue and gets reverted. When genuine (non-demo) work
+lands, re-point the tag at a `main` commit that has no cart/checkout/orders code:
+
+```bash
+git tag --force demo-baseline/checkout <commit> && git push --force origin demo-baseline/checkout
+```
+
+Other clones pick it up automatically: the reset fetches baseline tags with `--force`, and `--check`
+flags a stale local tag.
+
+### Database: never reseed
 
 ⚠️ `DATABASE_URL` is a **shared Neon** database. **Do not run `db:seed` or `db:push`** to "reset":
-they rewrite state that other people and agents depend on. Undo only what the run created:
-
-```sql
-BEGIN;
--- Give back the stock the run's orders consumed.
-UPDATE inventory i
-SET    stock = i.stock + s.qty
-FROM  (SELECT oi.product_id, SUM(oi.qty) AS qty
-       FROM order_items oi JOIN orders o ON o.id = oi.order_id
-       WHERE o.created_at >= :run_start
-       GROUP BY oi.product_id) s
-WHERE  i.product_id = s.product_id;
-DELETE FROM orders WHERE created_at >= :run_start;  -- order_items cascade
-DELETE FROM carts  WHERE created_at >= :run_start;  -- cart_items cascade
-COMMIT;
-```
+they rewrite state that other people and agents depend on. `demo:reset --seed` refuses unless
+`DATABASE_URL` points at `localhost`. Use `--db-since` instead.
 
 ### Gotchas
 
 1. **Merged code is on production** until the revert lands. The checkout uses stubbed payment, so
    anyone on the live site can place fake orders in that window. Revert the same day.
 2. **Residue collapses the next run.** If any checkout code survives the revert, the next run's
-   agents find it half-built and only wire it up (the #1149 failure). After reverting, check that
-   `src/routes/cart`, `src/routes/checkout` and `src/routes/orders` are gone.
+   agents find it half-built and only wire it up (the #1149 failure). `demo:reset -- --checkout --check`
+   must say Ready before you start.
 3. **Task #H (demo:reset for orders) is inside the demo**, so its code is reverted with everything
-   else. It can't be the reset tool. The permanent reset tooling has to ship on `main` separately.
+   else. It is not the reset tool. The permanent tooling above (task #1140) lives on `main`, outside
+   the demo.
 4. **Don't edit the ADR live.** It's shared by the template and every run copy.
-
-### To build (so reset is one command)
-
-- Tag the checkout baseline (`demo-baseline/checkout`) and teach `demo:reset` to restore it, the
-  same way it handles `demo-baseline/search-exact`.
-- Extend `demo:reset:studio` to archive a checkout run idea by exact run name.
-- A `demo:reset` flag that runs the database reset above, scoped by run start time.
