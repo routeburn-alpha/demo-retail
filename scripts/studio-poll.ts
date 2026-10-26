@@ -175,7 +175,7 @@ export interface TokenClaims {
  * Only `studioCode` and `exp` are surfaced. Both are safe to print, and between them they answer the
  * two questions a rejection raises: was this token for the right studio, and has it simply run out?
  */
-export function tokenClaims(): TokenClaims | undefined {
+function tokenClaims(): TokenClaims | undefined {
   try {
     const payload = JSON.parse(Buffer.from(token().split('.')[1], 'base64url').toString());
     return {
@@ -391,7 +391,7 @@ export function worktreePorts(): WorktreePort[] {
  * Raised only for callers about to *use* the port. whoami() warns instead of throwing: it gates the
  * whole agent loop, and a shared dev-server port is not a reason to refuse to pick up work.
  */
-export function assertPortIsUnique(): void {
+function assertPortIsUnique(): void {
   const port = agentPort();
   const clashes = conflictingPortWorktrees(REPO_ROOT, port, worktreePorts());
   if (clashes.length === 0) return;
