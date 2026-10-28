@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
-import { orderFacets, search } from './search';
+import { orderFacets, search, fuzzySearch } from './search';
 import type { Product } from '$lib/domain/product';
 import type { FacetOrder } from '$lib/domain/facets';
 
@@ -39,6 +39,47 @@ describe("women's clothing line", () => {
     const results = search("women's", realCatalog);
     expect(results.length).toBeGreaterThan(0);
     expect(results.every(isWomens)).toBe(true);
+  });
+});
+
+// Pure unit test — fuzzySearch has no I/O (it receives the catalogue as input), so a unit test is
+// allowed per ARCHITECTURE §4.1 / the no-mocks standard's pure-logic exception. No DB, no mocks.
+
+const makeProduct = (overrides: Partial<Product> & Pick<Product, 'id' | 'name' | 'category'>) => ({
+  price: 100,
+  description: '',
+  imageUrl: '',
+  ...overrides
+});
+
+describe('fuzzySearch', () => {
+  it('matches typo\'d tokens: "shel jaket" surfaces the shell jacket products', () => {
+    const results = fuzzySearch('shel jaket', realCatalog);
+    const names = results.map((p) => p.name);
+    expect(names).toContain('Storm Cirrus Shell');
+    expect(names).toContain("Aurora Women's 3L Shell");
+    expect(
+      results.every((p) => `${p.name} ${p.category}`.toLowerCase().includes('shell'))
+    ).toBe(true);
+  });
+
+  it('does not fuzzy-match tokens under 4 characters', () => {
+    // "cat" is a one-edit typo of "cap", but 3-char tokens get no fuzzy tolerance.
+    const catalog = [makeProduct({ id: 'p1', name: 'Trail Cap', category: 'headwear' })];
+    expect(fuzzySearch('cat', catalog)).toEqual([]);
+  });
+
+  it('ranks an exact/substring match above a fuzzy-only match for the same query', () => {
+    const fuzzyOnly = makeProduct({ id: 'p1', name: 'Trail Jaket', category: 'outerwear' });
+    const exact = makeProduct({ id: 'p2', name: 'Trail Jacket', category: 'outerwear' });
+    // Fuzzy-only product listed first in the input catalog on purpose: ranking, not
+    // input order, must put the exact match first.
+    const results = fuzzySearch('jacket', [fuzzyOnly, exact]);
+    expect(results.map((p) => p.id)).toEqual(['p2', 'p1']);
+  });
+
+  it('returns no results for a query that matches nothing, even fuzzily', () => {
+    expect(fuzzySearch('zzqqxx', realCatalog)).toEqual([]);
   });
 });
 
