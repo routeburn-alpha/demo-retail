@@ -97,14 +97,18 @@ export interface ResetOptions {
   checkout?: boolean;
 }
 
-const ITEM_LINE = /^\s*#(\d+):\s*(.*)$/;
+// The `search` in `search#1188` is the product code, which Studio prefixes as of 2026-10. Without
+// it optional here, every line failed to parse and the reset reported "already clean" mid-run.
+const ITEM_LINE = /^\s*(?:[\w-]+)?#(\d+):\s*(.*)$/;
 
 /**
  * Parse one `get_ideas` / `get_tasks` result line into an item.
  *
- * Lines look like:
- *   idea: `  #1115: Support typo tolerance in search (Archived) [owner: Cassandra Shum]`
- *   task: `  #1161: Implement fuzzy matching in search() [managedHaiku] [owner: C S] (Idea #1110: …)`
+ * Lines look like (the product prefix is optional — older servers omit it):
+ *   idea: `  search#1115: Support typo tolerance in search (Archived) [owner: Cassandra Shum]`
+ *   task: `  search#1161: Implement fuzzy matching in search() [managedHaiku] [owner: C S] (Idea search#1110: …)`
+ *
+ * Studio also emits an indented `URL: …` line under each item; it does not match and is skipped.
  *
  * Tasks carry no status in this listing, so `status` is '' for them. That is not lossy: the
  * queryless listing returns only live records, so there is no archived task to filter out.
@@ -117,7 +121,7 @@ export function parseItemLine(line: string, kind: 'Idea' | 'Task'): StudioItem |
   if (!m) return null;
 
   // A task's trailing `(Idea #N: …)` annotation, then any number of `[agent]` / `[owner: …]`.
-  const IDEA_ANNOTATION = /\s*\(Idea #(\d+):[^)]*\)\s*$/;
+  const IDEA_ANNOTATION = /\s*\(Idea (?:[\w-]+)?#(\d+):[^)]*\)\s*$/;
   const idea = m[2].match(IDEA_ANNOTATION)?.[1];
   let rest = m[2].replace(IDEA_ANNOTATION, '');
   const TRAILING_BRACKET = /\s*\[[^\]]*\]\s*$/;

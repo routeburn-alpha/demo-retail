@@ -155,7 +155,7 @@ describe.skipIf(!hasCredentials())('demo-reset-studio (real studio-ai MCP over H
     const detail = await callTool('get_task', { productCode: PRODUCT, taskNumber: n });
     const own = detail.split('\n=== idea')[0]; // the task's own section, not its linked context
     expect(own).not.toMatch(/fuzzy|typo|levenshtein/i);
-    expect(own).toMatch(/^#\d+: .* \(Archived,/m);
+    expect(own).toMatch(/^(?:[\w-]+)?#\d+: .* \(Archived,/m);
   }, 30_000);
 });
 
@@ -182,6 +182,24 @@ describe('checkout run matching', () => {
   it('reads the linked idea number off a task line', () => {
     const line = '  #1201: Cart port (cookie cart) [managedOpus] [owner: C S] (Idea #1199: Cart → checkout → order confirmation — demo run 2026-10-20)';
     expect(parseItemLine(line, 'Task')).toEqual({ number: 1201, name: 'Cart port (cookie cart)', status: '', idea: 1199 });
+  });
+
+  // Verbatim from a 2026-10-29 listing: a demo run's idea and task were left live because these
+  // lines did not parse, and the reset reported "Studio already clean".
+  it('reads product-prefixed lines and skips the URL line under them', () => {
+    expect(parseItemLine('  search#1188: Typo-tolerant search matching (Building) [owner: Cassandra Shum]', 'Idea')).toEqual({
+      number: 1188,
+      name: 'Typo-tolerant search matching',
+      status: 'Building'
+    });
+    const task = '  search#1285: Wire tolerant matcher into storefront search input (Idea search#1188: Typo-tolerant search matching)';
+    expect(parseItemLine(task, 'Task')).toEqual({
+      number: 1285,
+      name: 'Wire tolerant matcher into storefront search input',
+      status: '',
+      idea: 1188
+    });
+    expect(parseItemLine('    URL: https://app.getpraxa.ai/demo-alpha/search-discovery/search/ideas/1188', 'Idea')).toBeNull();
   });
 });
 
