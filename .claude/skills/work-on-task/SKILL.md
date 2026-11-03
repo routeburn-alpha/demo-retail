@@ -14,6 +14,12 @@ The task is in your prompt. Do not fetch it again.
    | Tests Run Against Real Services | yes | extend `src/routes/page.svelte.test.ts` |
 
    Where the answer is no, change the plan now.
-2. Make the change the task asks for. Go straight to the files the task names; read a file before changing it.
-3. If the change alters behaviour, update or add the nearest existing test. Tests use real services: never mock `fetch` or fake the database.
+2. If the change alters behaviour, write the test first: update or add the nearest existing test so it asserts the new behaviour, then run that file alone and watch it fail:
+
+   ```bash
+   npx vitest run <test-file> 2>&1 | tee logs/test-first.log
+   ```
+
+   It must fail for the reason the task gives. A test that passes before the change proves nothing: fix the test, not the code. Tests use real services: never mock `fetch` or fake the database.
+3. Make the change the task asks for. Go straight to the files the task names; read a file before changing it. Run the same test file again: it must pass.
 4. Create the branch you were told to work on, then ship with the `precommit` skill (`.claude/skills/precommit/SKILL.md`).
