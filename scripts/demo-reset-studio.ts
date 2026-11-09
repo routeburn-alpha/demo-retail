@@ -26,7 +26,7 @@ import { callTool, hasCredentials } from './studio-poll';
 
 /** Matched against the item NAME only. Body matching is far too broad — most search ideas
  *  mention "fuzzy" somewhere in their prose without being fuzzy-search work. */
-const FUZZY_NAME = /fuzzy|typo|levenshtein|edit\s*distance/i;
+export const FUZZY_NAME = /fuzzy|typo|misspell|levenshtein|edit\s*distance/i;
 
 /**
  * Never delete the cleanup work itself. #1147's NAME contains "fuzzy-search", so without this
