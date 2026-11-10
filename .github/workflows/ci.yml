@@ -83,7 +83,8 @@ jobs:
 
   test:
     name: test
-    runs-on: ubuntu-latest
+    # Pinned: Playwright 1.56.1 cannot install Chromium on ubuntu-latest (26.04).
+    runs-on: ubuntu-24.04
     env:
       # Real Postgres for the no-mocks integration tests. Absent secret -> db:push
       # fails -> job red (the intended "never silently skip" behavior).

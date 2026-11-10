@@ -5,6 +5,7 @@ import {
   CHECKOUT_RUN_NAME,
   discoverCheckoutRun,
   discoverResettable,
+  FUZZY_NAME,
   parseItemLine,
   resetStudio,
   scrubArchivedTask,
@@ -200,6 +201,20 @@ describe('checkout run matching', () => {
       idea: 1188
     });
     expect(parseItemLine('    URL: https://app.getpraxa.ai/demo-alpha/search-discovery/search/ideas/1188', 'Idea')).toBeNull();
+  });
+});
+
+// Pure unit test: FUZZY_NAME is a regular expression, so there is no I/O to run against a real service.
+describe('FUZZY_NAME', () => {
+  // Idea #1202 carried this name, so the reset reported "Studio already clean" with it still live.
+  it('matches a demo run that words typo tolerance as misspellings', () => {
+    expect(FUZZY_NAME.test('Tolerate misspellings in search queries')).toBe(true);
+  });
+
+  it('leaves unrelated search work alone', () => {
+    for (const name of ['Search-as-you-type autocomplete', 'Synonym dictionary v1', 'Highlight matched terms in results']) {
+      expect(FUZZY_NAME.test(name), name).toBe(false);
+    }
   });
 });
 
