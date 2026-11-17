@@ -18,15 +18,50 @@ describe('exact search', () => {
     ).toBe(true);
   });
 
-  it('does not tolerate typos (fuzzy matching removed)', () => {
-    // "jaket" is a one-character typo of "jacket"; exact matching surfaces nothing.
-    expect(search('jaket', realCatalog)).toEqual([]);
+  it('does not expand synonyms', () => {
+    // "pants" has no catalogue word within fuzzy range either (nearest real tokens are
+    // several edits away) — only a removed synonym dictionary used to map it onto leggings.
+    expect(search('pants', realCatalog)).toEqual([]);
+  });
+});
+
+// Fuzzy token matching: see `fuzzyThreshold` in search.ts for the exact edit-distance budget
+// per token length. These are pure unit tests — `search()` has no I/O, so no real service
+// is required (ARCHITECTURE §4.1 / the no-mocks standard's pure-logic exception).
+describe('fuzzy token matching', () => {
+  it('"shel jaket" (misspelled "shell jacket") surfaces the shell jacket products', () => {
+    // "shel" already hits exactly (it's a substring of "shell"); "jaket" is a 1-edit typo of
+    // "jacket" and only matches through the fuzzy fallback.
+    const results = search('shel jaket', realCatalog);
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.every((p) => p.category === 'shell jacket')).toBe(true);
   });
 
-  it('does not expand synonyms (synonym matching removed)', () => {
-    // "womens" (no apostrophe) is not a literal token in any name/category — only the
-    // removed synonym layer used to surface the women's line for it.
-    expect(search('womens', realCatalog)).toEqual([]);
+  it('ranks an exact match ahead of a fuzzy-only match, preserving catalogue order within each group', () => {
+    const miniCatalog: Product[] = [
+      { id: 'fuzzy-1', name: 'Desert Tant', category: 'tant', price: 1, description: '', imageUrl: '' },
+      { id: 'exact-1', name: 'Alpine Tent', category: 'tent', price: 1, description: '', imageUrl: '' },
+      { id: 'exact-2', name: 'Canyon Tent', category: 'tent', price: 1, description: '', imageUrl: '' },
+      { id: 'fuzzy-2', name: 'Ridge Tend', category: 'tend', price: 1, description: '', imageUrl: '' }
+    ];
+    // "tent" matches exact-1/exact-2 by substring and fuzzy-1/fuzzy-2 only by 1-edit distance.
+    // Exact hits must lead, and each group must keep its original catalogue order.
+    expect(search('tent', miniCatalog).map((p) => p.id)).toEqual([
+      'exact-1',
+      'exact-2',
+      'fuzzy-1',
+      'fuzzy-2'
+    ]);
+  });
+
+  it('does not fuzzy-match a short (<=3 char) token', () => {
+    // "bat" is a 1-edit typo of "bag" (as in "sleeping bag"), but tokens of 3 chars or fewer
+    // require an exact substring hit, so the fuzzy fallback never kicks in for it.
+    expect(search('bat', realCatalog)).toEqual([]);
+  });
+
+  it('returns no results for a query with no close match, exact or fuzzy', () => {
+    expect(search('xyzzyx', realCatalog)).toEqual([]);
   });
 });
 
