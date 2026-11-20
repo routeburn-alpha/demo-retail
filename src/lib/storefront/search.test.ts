@@ -18,15 +18,29 @@ describe('exact search', () => {
     ).toBe(true);
   });
 
-  it('does not tolerate typos (fuzzy matching removed)', () => {
-    // "jaket" is a one-character typo of "jacket"; exact matching surfaces nothing.
-    expect(search('jaket', realCatalog)).toEqual([]);
-  });
-
   it('does not expand synonyms (synonym matching removed)', () => {
     // "womens" (no apostrophe) is not a literal token in any name/category — only the
     // removed synonym layer used to surface the women's line for it.
     expect(search('womens', realCatalog)).toEqual([]);
+  });
+});
+
+describe('typo-tolerant fuzzy search', () => {
+  it('"shel jaket" (dropped letters) returns the shell-jacket products', () => {
+    const results = search('shel jaket', realCatalog);
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.every((p) => p.category.toLowerCase() === 'shell jacket')).toBe(true);
+  });
+
+  it('keeps exact-substring matches ranked first, unchanged by the fuzzy step', () => {
+    // Same query, same results, same order as exact-only matching produced before.
+    const exactHaystack = (p: Product) => `${p.name} ${p.category}`.toLowerCase().includes('jacket');
+    const before = realCatalog.filter(exactHaystack);
+    expect(search('jacket', realCatalog)).toEqual(before);
+  });
+
+  it('returns an empty list for a query that matches nothing, exact or fuzzy', () => {
+    expect(search('zzqzzqzzq', realCatalog)).toEqual([]);
   });
 });
 
